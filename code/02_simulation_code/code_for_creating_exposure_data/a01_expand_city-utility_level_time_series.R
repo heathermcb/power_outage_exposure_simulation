@@ -1,4 +1,4 @@
-# Expand Out Power Outages for Simulations
+# Expand out power outages for simulations
 
 # This script expands power outage data into a time series, from its current
 # form where the dataset only includes entries for changes in customers_out.
@@ -8,34 +8,28 @@
 # It keeps the groupings we've made.
 # This script uses code from Matt's "example_for_shenyue".
 
+# There is a faster data.table version that does this now as part of the POUS 
+# epi power outage exposure and medicare hospitalizations data cleaning 
+# pipeline. 
+
+# Author: Heather
+# Created in 2020, Last updated Oct 14th, 2024
 
 # Libraries ---------------------------------------------------------------
 
-library(tidyverse)
-library(zoo)
-library(here)
-library(lubridate)
+pacman::p_load(tidyverse, zoo, here, lubridate)
 
 # Data --------------------------------------------------------------------
 
 raw_counties <-
   read_rds(
     here(
-      "power_outage_medicare_data",
+      "data",
       "power_outage_medicare_data_cleaning_output",
       "raw_with_fips.RDS"
     )
   ) %>%
   ungroup()
-
-sample <- raw_counties %>% 
-  select(utility_name, clean_state_name, clean_county_name, city_name) %>%
-  distinct()
-
-sample <- sample_n(sample, size = 1)
-
-raw_counties <- sample %>% left_join(raw_counties)
-
 
 # Helpers -----------------------------------------------------------------
 
@@ -176,7 +170,7 @@ return_county_longform <- function(df) {
         city_name,
         fips,
         customers_out,
-        customers_served,
+        customers_tracked,
         date
       ) %>%
       arrange(clean_state_name,
@@ -221,9 +215,9 @@ for (j in 1:length(k)) {
   # write
   write_rds(county_df_long,
             here(
-              "power_outage_medicare_data",
+              "data",
               "power_outage_simulation_created_data",
-              "city-utility_level_time_series",
+              "city_utility_level_time_series",
               paste0("expanded_", k[[j]], ".RDS")
             ))
 }

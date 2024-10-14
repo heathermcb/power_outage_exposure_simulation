@@ -1,13 +1,12 @@
 # This script pulls and saves key distributional statistics from the power 
 # outage US national data that we need for the outage simulations.
 
+# Author: Heather
+# Last updated: Oct 14th, 2024
+
 # Libraries ---------------------------------------------------------------
 
-library(tidyverse)
-library(here)
-library(lubridate)
-
-# Do ----------------------------------------------------------------------
+pacman::p_load(tidyverse, here, lubridate, arrow)
 
 # Customers served --------------------------------------------------------
 
@@ -15,7 +14,7 @@ library(lubridate)
 l <-
   list.files(
     here(
-      "power_outage_medicare_data",
+      "data",
       "power_outage_medicare_data_cleaning_output",
       "county_cust_estimates"),
       full.names = T
@@ -42,7 +41,7 @@ customers_served_by_city_utility_year_vector <-
 write_rds(
   customers_served_by_city_utility_year_vector,
   here(
-    "power_outage_medicare_data",
+    "data",
     "power_outage_simulation_created_data",
     "distribution_vectors",
     "customers_served_by_city_utility_year.RDS"
@@ -57,15 +56,18 @@ write_rds(
 l <-
   list.files(
     here(
-      "power_outage_medicare_data",
+      "data",
       "power_outage_simulation_created_data",
-      "city-utility_level_time_series"
+      "city_utility_level_time_series"
     ),
     full.names = T
   )
-l <- sample(l, size = 30)
+l <- sample(l, size = 30) # only going to use 30 because we don't need to sample
+# the whole dataset to get a good idea, and it's too large 
 
-t <- lapply(l, readRDS)
+open_dataset()
+
+t <- lapply(l, read_parquet)
 
 customers_out_time_series <- bind_rows(t)
 
@@ -113,7 +115,7 @@ percentage_customers_out_vector <- customers_out_time_series$p_customers_out
 write_rds(
   percentage_customers_out_vector,
   here(
-    "power_outage_medicare_data",
+    "data",
     "power_outage_simulation_created_data",
     "distribution_vectors",
     "percent_customers_out_vector.RDS"
@@ -124,7 +126,7 @@ write_rds(
 write_rds(
   customers_out_time_series,
   here(
-    "power_outage_medicare_data",
+    "data",
     "power_outage_simulation_created_data",
     "distribution_vectors",
     "customers_out_time_series.RDS"
@@ -137,7 +139,7 @@ write_rds(
 l <-
   list.files(
     here(
-      "power_outage_medicare_data",
+      "data",
       "power_outage_medicare_data_cleaning_output",
       "county_cust_estimates"),
     full.names = F
@@ -147,7 +149,7 @@ s <- data.frame()
 i = 0
 for (file in l){
   d <- read_csv(here(
-    "power_outage_medicare_data",
+    "data",
     "power_outage_medicare_data_cleaning_output",
     "county_cust_estimates", file),
                 cols(
@@ -170,7 +172,7 @@ pods_by_county <- pods_by_county$n
 write_rds(
   pods_by_county,
   here(
-    "power_outage_medicare_data",
+    "data",
     "power_outage_simulation_created_data",
     "distribution_vectors",
     "num_pods_by_county.RDS"
@@ -204,7 +206,7 @@ for (county in time_series) {
 }
 
 write_rds(all_periods, here(
-  "power_outage_medicare_data",
+  "data",
   "power_outage_simulation_created_data",
   "distribution_vectors",
   "length_of_outages.RDS"

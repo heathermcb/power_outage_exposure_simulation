@@ -1,14 +1,19 @@
-# Find the number of households and establishments to get census customer
-# estimates by year.
+# This script uses census data to find the number of households by county and 
+# by year, and as well as the number of establishments by county and by year,
+# which we will use to get estimates of the number of electrical customers by 
+# county, for years 2017-2020.
 
+# Author: Heather
+# Date updated: Oct 2nd, 2024
 
 # Libraries ---------------------------------------------------------------
 
-library(tidyverse)
-library(here)
-
+pacman::p_load(tidyverse, here)
 
 # Read --------------------------------------------------------------------
+
+# load fips of states and counties we wish to include
+county_list <- read_rds(here('data', 'cotus_county_list_of_fips.RDS'))
 
 # Households --------------------------------------------------------------
 
@@ -16,7 +21,7 @@ library(here)
 hh_2017 <-
   read_csv(
     here(
-      "power_outage_medicare_data",
+      "data",
       "power_outage_medicare_data_cleaning_raw_data",
       "households_census_data",
       "nhgis0006_ds233_20175_county_E.csv"
@@ -35,7 +40,7 @@ hh_2017 <-
 hh_2018 <-
   read_csv(
     here(
-      "power_outage_medicare_data",
+      "data",
       "power_outage_medicare_data_cleaning_raw_data",
       "households_census_data",
       "nhgis0006_ds239_20185_county_E.csv"
@@ -54,7 +59,7 @@ hh_2018 <-
 hh_2019 <-
   read_csv(
     here(
-      "power_outage_medicare_data",
+      "data",
       "power_outage_medicare_data_cleaning_raw_data",
       "households_census_data",
       "nhgis0006_ds244_20195_county_E.csv"
@@ -73,7 +78,7 @@ hh_2019 <-
 hh_2020 <-
   read_csv(
     here(
-      "power_outage_medicare_data",
+      "data",
       "power_outage_medicare_data_cleaning_raw_data",
       "households_census_data",
       "nhgis0006_ds249_20205_county_E.csv"
@@ -91,13 +96,12 @@ hh_2020 <-
 # join all yrs
 hh_all_years <- bind_rows(hh_2018, hh_2019, hh_2020)
 
-
 # Establishments ----------------------------------------------------------
 
 estab_2018 <-
   read_csv(
     here(
-      "power_outage_medicare_data",
+      "data",
       "power_outage_medicare_data_cleaning_raw_data",
       "establishments_census_data",
       "CBP2018.CB1800CBP_data_with_overlays_2022-07-22T114055.csv"
@@ -119,14 +123,14 @@ estab_2018 <- estab_2018 %>%
     state_fips = str_sub(id, start = 10, end = 11),
     county_fips = str_sub(id, start = 12, end = 14)
   ) %>%
-  select(county_long = county, state_fips, county_fips, num_of_estab) %>%
+  select(county_name_long = county, state_fips, county_fips, num_of_estab) %>%
   mutate(year = 2018)
 
 
 estab_2019 <-
   read_csv(
     here(
-      "power_outage_medicare_data",
+      "data",
       "power_outage_medicare_data_cleaning_raw_data",
       "establishments_census_data",
       "CBP2019.CB1900CBP_data_with_overlays_2022-07-22T114003.csv"
@@ -148,12 +152,12 @@ estab_2019 <- estab_2019 %>%
     state_fips = str_sub(id, start = 10, end = 11),
     county_fips = str_sub(id, start = 12, end = 14)
   ) %>%
-  select(county_long = county, state_fips, county_fips, num_of_estab) %>%
+  select(county_name_long = county, state_fips, county_fips, num_of_estab) %>%
   mutate(year = 2019)
 
 estab_2020 <- read_csv(
   here(
-    "power_outage_medicare_data",
+    "data",
     "power_outage_medicare_data_cleaning_raw_data",
     "establishments_census_data",
     "CBP2020.CB2000CBP_data_with_overlays_2022-06-22T143028.csv"
@@ -175,7 +179,7 @@ estab_2020 <- estab_2020 %>%
     state_fips = str_sub(id, start = 10, end = 11),
     county_fips = str_sub(id, start = 12, end = 14)
   ) %>%
-  select(county_long = county, state_fips, county_fips, num_of_estab) %>%
+  select(county_name_long = county, state_fips, county_fips, num_of_estab) %>%
   mutate(year = 2020)
 
 all_estab <- bind_rows(estab_2018, estab_2019, estab_2020)
@@ -183,17 +187,44 @@ all_estab <- bind_rows(estab_2018, estab_2019, estab_2020)
 census_estimates <- hh_all_years %>% 
   left_join(all_estab)
 
-# STRONG NOTE: note that Hawaii and Alaskan estimates are not reliable.
-# they are removed
 census_estimates <- census_estimates %>% 
-  mutate(census_estimate_customers = total_occupied_hh + num_of_estab) %>%
-  filter(state != 'Hawaii' & state != 'Alaska')
+  mutate(five_digit_fips = paste0(state_fips, county_fips))
 
-write_csv(
+# filter to contiguous US 
+# all of what we want to be included is - the sum of the following expression 
+# is 1
+# sum(unique(county_list$five_digit_fips) %in% 
+# census_estimates$five_digit_fips)/length(unique(county_list$five_digit_fips))
+
+census_estimates <-
+  census_estimates %>%
+  filter(five_digit_fips %in% county_list$five_digit_fips) %>%
+  select(
+    state,
+    state_fips,
+    county,
+    county_fips,
+    five_digit_fips,
+    county_name_long,
+    year,
+    total_occupied_hh,
+    num_of_estab
+  )
+
+# STRONG NOTE: note that Hawaii and Alaskan estimates are not reliable.
+# they are removed, along with other non-contiguous states 
+
+census_estimates <-
+  census_estimates %>%
+  mutate(census_customer_estimate = total_occupied_hh + num_of_estab)
+
+# Write -------------------------------------------------------------------
+
+write_rds(
   census_estimates,
   here(
-    "power_outage_medicare_data",
+    "data",
     "power_outage_medicare_data_cleaning_output",
-    "county_level_census_cust_estimates.csv"
+    "county_level_census_cust_estimates.RDS"
   )
 )

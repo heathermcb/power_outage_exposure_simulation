@@ -4,13 +4,7 @@
 
 # Libraries ---------------------------------------------------------------
 
-library(tidyverse)
-library(here)
-library(EnvStats)
-library(lubridate)
-library(padr)
-library(data.table)
-
+pacman::p_load(tidyverse, here, EnvStats, lubridate, padr, data.table)
 
 # Read --------------------------------------------------------------------
 
@@ -19,7 +13,7 @@ library(data.table)
 customers_served <-
   readRDS(
     here(
-      "power_outage_medicare_data",
+      "data",
       "power_outage_simulation_created_data",
       "distribution_vectors",
       "customers_served_by_city_utility_year.RDS"
@@ -31,7 +25,7 @@ customers_served <-
 pods_by_county <- 
   readRDS(
     here(
-      "power_outage_medicare_data",
+      "data",
       "power_outage_simulation_created_data",
       "distribution_vectors",
       "num_pods_by_county.RDS"
@@ -42,7 +36,7 @@ pods_by_county <-
 p_customers_out <- 
   readRDS(
     here(
-      "power_outage_medicare_data",
+      "data",
       "power_outage_simulation_created_data",
       "distribution_vectors",
       "percent_customers_out_vector.RDS"
@@ -57,11 +51,13 @@ non_zero_p <-
 
 # empirical lengths of outage
 samples_length_of_outage <- read_rds(here(
-  "power_outage_medicare_data",
+  "data",
   "power_outage_simulation_created_data",
   "distribution_vectors",
   "length_of_outages.RDS"
-))
+)) %>% filter(!is.na(duration))
+
+samples_length_of_outage <- samples_length_of_outage$duration
 
 
 # Same for every iteration ------------------------------------------------
@@ -85,7 +81,7 @@ ten_min_intervals <-
   ][, list(ten_min_seq)]
 
 # Do ----------------------------------------------------------------------
-create_one_simed_county <- function(i, simulation_case){
+create_one_simed_county <- function(i){
   
   # first make dataset backbone --------------------------------------------
   # create counties
@@ -213,9 +209,9 @@ create_one_simed_county <- function(i, simulation_case){
   saveRDS(
     county_specific_backbone,
     here(
-      "power_outage_medicare_data",
+      "data",
       "power_outage_simulation_created_data",
-      paste0("exposure_datasets_", simulation_case),
+      paste0("exposure_datasets"),
       paste0("400_counties_", i, ".RDS")
     )
   )
@@ -242,21 +238,12 @@ clusterEvalQ(cl, {library(tidyverse)
              library(padr)
              library(data.table)})
 
-
-# Use parLapply to apply a function in parallel
-# result <- parLapply(cl,
-#                     X = is,
-#                     fun = create_one_simed_county,
-#                     simulation_case = 1)
-
 result <- parLapply(cl,
                     X = is,
-                    fun = create_one_simed_county,
-                    simulation_case = 2)
+                    fun = create_one_simed_county)
 
 # Stop the cluster
 stopCluster(cl)
 
 
-# list_of_nulls <- lapply(X = is, FUN = create_one_simed_county)
 

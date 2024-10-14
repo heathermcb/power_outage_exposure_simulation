@@ -18,8 +18,8 @@ library(parallel)
 # all effect size, DID 
 ls_1 <- list.files(
   here(
-    "power_outage_medicare_data",
-    "simulated_hospitalization_outcome_data_smaller",
+    "data",
+    "simulated_hospitalization_outcome_data",
     "8_hrs_no_missingness_DID"
   ),
   pattern = "^outcome_data_8_hrs_no_missingness",
