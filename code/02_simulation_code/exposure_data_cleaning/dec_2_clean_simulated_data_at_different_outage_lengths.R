@@ -1,19 +1,16 @@
 # This script will take the simulated, generated data and clean it
 # in the same way the real data is cleaned.
 
-# It will also clean it based on different clinically significant outage 
-# lengths.
+# It will also clean it based on different health-relevant outage 
+# durations.
 
 # Libraries ---------------------------------------------------------------
 
-library(tidyverse)
-library(here)
-library(data.table)
-library(lubridate)
-library(parallel)
+pacman::p_load(tidyverse, here, data.table, lubridate, parallel)
 
-source(here("power_outage_medicare",
-            "simulation_data_cleaning",
+source(here("code",
+            "02_simulation_code",
+            "exposure_data_cleaning",
             "helpers.R"))
 
 # Constants ---------------------------------------------------------------
@@ -25,16 +22,21 @@ num_cores <- detectCores()
 
 # Read --------------------------------------------------------------------
 
-sim_dat_L <- list.files(here("power_outage_medicare_data",
-                             "power_outage_simulation_created_data",
-                             "exposure_datasets_2"), full.names = T)
-
+sim_dat_L <- list.files(
+  here(
+    "data",
+    "power_outage_simulation_created_data",
+    "exposure_datasets"
+  ),
+  full.names = T
+)
 
 ps <- seq(1:length(sim_dat_L))
 
 clean_simulated_data <- function(p){
   sim_dat_b <- readRDS(sim_dat_L[[p]]) 
   setnames(sim_dat_b, old = 'ten_min_times', new = 'datetimes')
+  
   # Aggregate to county and hourly level ------------------------------------
   
   sim_dat_b <- sim_dat_b[order(

@@ -1,7 +1,5 @@
-### Helper function script
-### This script contains functions that help with identifying the presence 
-### and length of power outages in the POUS data
-
+# Helper function script: This script contains functions that help with 
+# identifying the presence and length of power outages in the POUS data
 
 # Find PO durations -------------------------------------------------------
 
@@ -28,7 +26,6 @@ find_po_durations <- function(hourly_county_df, outage_duration) {
     ungroup()
   return(po_durations)
 }
-
 
 # Find start and end days -------------------------------------------------
 
@@ -64,7 +61,6 @@ find_start_and_end_days <-
     return(po_st_nd)
   }
 
-
 # Durations and dates -----------------------------------------------------
 
 # want outage start dates and durations in a dataframe to calculate exposed days
@@ -84,7 +80,6 @@ durations_and_dates <-
       left_join(po_st_nd)
     return(durations_and_dates)
   }
-
 
 # Find exposed days -------------------------------------------------------
 
@@ -109,7 +104,6 @@ find_exposed_days <-
     return(exposed_days)
   }
 
-
 # Make exposure frame -----------------------------------------------------
 
 # make exposure frame
@@ -120,7 +114,6 @@ frame <- function(hourly_county_df) {
     distinct()
   return(frame)
 }
-
 
 # Create analytic data ----------------------------------------------------
 
@@ -149,3 +142,4 @@ create_analytic_data <-
     
     return(all_data)
   }
+

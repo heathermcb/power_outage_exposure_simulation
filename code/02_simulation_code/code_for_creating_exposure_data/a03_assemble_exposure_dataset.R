@@ -2,6 +2,9 @@
 # simulated city-utilities, and populates simulated outage data.
 # These will be aggregated into 100 datasets of 100 counties later. 
 
+# Author: Heather
+# Last updated: sometime in 2021 lol
+
 # Libraries ---------------------------------------------------------------
 
 pacman::p_load(tidyverse, here, EnvStats, lubridate, padr, data.table)
@@ -48,14 +51,16 @@ non_zero_p <-
   data.table(p_customers_out = p_customers_out)[p_customers_out > 0][
     , p_customers_out]
 
-
 # empirical lengths of outage
-samples_length_of_outage <- read_rds(here(
-  "data",
-  "power_outage_simulation_created_data",
-  "distribution_vectors",
-  "length_of_outages.RDS"
-)) %>% filter(!is.na(duration))
+samples_length_of_outage <- read_rds(
+  here(
+    "data",
+    "power_outage_simulation_created_data",
+    "distribution_vectors",
+    "length_of_outages.RDS"
+  )
+) %>%
+  filter(!is.na(duration))
 
 samples_length_of_outage <- samples_length_of_outage$duration
 
@@ -80,7 +85,9 @@ ten_min_intervals <-
   ][, ten_min_seq := as_datetime(ten_min_seq)
   ][, list(ten_min_seq)]
 
-# Do ----------------------------------------------------------------------
+
+# Function to create simed counties ---------------------------------------
+
 create_one_simed_county <- function(i){
   
   # first make dataset backbone --------------------------------------------
@@ -113,17 +120,14 @@ create_one_simed_county <- function(i){
   
   # add outages -------------------------------------------------------------
   
-  # find out about how many outage lengths we need to sample to have around 0.06%
-  # of our observations out; based on data investigation we did about the 
+  # need to sample this many outage lengths we need to sample to have around 
+  # 1% of our observations out; based on data investigation we did about the 
   # distribution of outages in the data
-  
-  # the label here is like is it the first outage, second, etc. 
-  # it indexes the outage number 
+
   n1 <-
-    floor(dim(county_specific_backbone)[[1]] * 0.08 / 
-            # 6% of time is spent out in the dataset - some outages will overlap, 
-            # and we'll remove them, so we need to give extra 
-            mean(samples_length_of_outage)) # mean outage length is 22 mins
+    floor(dim(county_specific_backbone)[[1]] * 0.02 / 
+            mean(samples_length_of_outage)) 
+  # mean outage length is 36 mins
   # n1 gives us the number of outages to average 6% of time out
   # this is actual outage lengths according to empirical dist
   outage_lengths <- remp(n1, samples_length_of_outage) 
@@ -135,7 +139,7 @@ create_one_simed_county <- function(i){
   outages <- data.table(label, outage_lengths, dates)
  
   # give a length in mins
-  outages[, outage_length_mins := dminutes(x = 10*outage_lengths)][
+  outages[, outage_length_mins := dminutes(x = 10 * outage_lengths)][
     , outage_end := ten_min_seq + outage_length_mins
   ]
   
@@ -172,22 +176,28 @@ create_one_simed_county <- function(i){
   
   outages <- unique(outages, by = c('pod_id', 'ten_min_times'))
   
-  # have to join here to not get an error - but here we're joining the 
-  # outages back to the data backbone - should set keys to make this faster 
+  # here we're joining the outages back to the data backbone - should set 
+  # keys to make this faster 
   setkey(county_specific_backbone, pod_id)
   setkey(dat, pod_id)
   county_specific_backbone <- dat[county_specific_backbone]
   
-  setnames(county_specific_backbone, old = "ten_min_seq", new = "ten_min_times")
+  setnames(county_specific_backbone, old = "ten_min_seq", 
+           new = "ten_min_times")
   setkey(county_specific_backbone, ten_min_times, pod_id)
   setkey(outages, ten_min_times, pod_id)
   
   county_specific_backbone <- outages[county_specific_backbone]
   
-  setorder(county_specific_backbone, counties, list_of_pods, pod_id, ten_min_times)
+  setorder(county_specific_backbone,
+           counties,
+           list_of_pods,
+           pod_id,
+           ten_min_times)
   
   # create counts rather than proportions
-  county_specific_backbone[, customers_out_counts := customers_out * customers_by_pod] 
+  county_specific_backbone[, customers_out_counts 
+                           := customers_out * customers_by_pod] 
   
   # this is selecting cols 
     county_specific_backbone <-
@@ -197,12 +207,10 @@ create_one_simed_county <- function(i){
                                    ten_min_times,
                                    customers_out_counts)]
 
-  
   county_specific_backbone[is.na(county_specific_backbone)] <- 0
   
   county_specific_backbone[, ('customers_out_counts') := round(.SD, 0),
        .SDcols = c('customers_out_counts')]
-  
   
   # Write -------------------------------------------------------------------
   
@@ -217,6 +225,9 @@ create_one_simed_county <- function(i){
   )
   
 }
+
+
+# Do ----------------------------------------------------------------------
 
 # Load the parallel package
 library(parallel)

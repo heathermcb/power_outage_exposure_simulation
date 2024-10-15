@@ -35,16 +35,14 @@ max_nas_to_impute <- hour_thrshld / dminutes(x = 5)
 
 # fastest to do all years at once, taking advantage of data.table's 
 # infrastructure - excluding 2017 though bc it's garbage
-#intervals_2017 <- generate_intervals(2017)
-intervals_2018 <- generate_intervals(2018)
-intervals_2019 <- generate_intervals(2019)
+#intervals_2018 <- generate_intervals(2018)
+#intervals_2019 <- generate_intervals(2019)
 intervals_2020 <- generate_intervals(2020)
 
 intervals_dt <-
   data.table(date = c(
-    #intervals_2017,
-    intervals_2018,
-    intervals_2019,
+    #intervals_2018,
+   # intervals_2019,
     intervals_2020
   ))
 
@@ -59,10 +57,7 @@ process_chunk <- function(i, pous_data) {
   # get city-utility id frame
   city_utilities <- get_unique_city_utilities(pous_dat_chunk = pous_dat_chunk)
   
-  # get ten min time series 
-  # intervals <- 
-  #   data.table(date = generate_intervals(year))
-  
+  # expand to ten min series
   ten_min_time_series <- 
     create_ten_min_series(id_frame = city_utilities, 
                           intervals_dt = intervals_dt)
@@ -95,7 +90,6 @@ process_chunk <- function(i, pous_data) {
   pous_dat_chunk <-
     city_utilities[pous_dat_chunk, on = .(city_utility_name_id)]
 
-
   # write the chunk
   write_parquet(
     x = pous_dat_chunk,
@@ -107,6 +101,8 @@ process_chunk <- function(i, pous_data) {
     )
   )
   print(paste("Processed chunk", i))
+  print(dim(pous_dat_chunk))
+  print(sum(is.na(pous_dat_chunk$new_locf_rep))/length(pous_dat_chunk$new_locf_rep))
 }
 
 # Data --------------------------------------------------------------------
@@ -127,7 +123,8 @@ pous_data <-
 
 # have to expand this data in chunks due to R's vector limits
 # want min number of chunks without exceeding the limit for max performance
-# going with ~ 150 chunks; as few chunks as possible is best
+# going with ~ 150 chunks; as few chunks as possible is best to leverage
+# data.table's speed
 
 pous_list <- sort(unique(pous_data$five_digit_fips))
 pous_l_split <- split(pous_list, ceiling(seq_along(pous_list) / 15))

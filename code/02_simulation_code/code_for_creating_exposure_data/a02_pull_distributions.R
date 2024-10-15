@@ -10,13 +10,15 @@ pacman::p_load(tidyverse, here, lubridate, arrow, data.table)
 
 # Customers served --------------------------------------------------------
 
+# open dataset
 city_utility_time_series <- open_dataset(here(
   "data",
   "power_outage_simulation_created_data",
   "city_utility_level_time_series"))
 
-j <- city_utility_time_series %>%
-  filter(year > 2017) %>%
+customers_served_frame <- 
+  city_utility_time_series %>%
+  filter(year == 2018) %>%
   group_by(utility_name,
            clean_state_name,
            clean_county_name,
@@ -38,11 +40,15 @@ j <- city_utility_time_series %>%
   distinct() %>%
   collect()
 
-j <- j %>% filter(!is.na(customers_served)) %>% 
+customers_served_frame <- 
+  customers_served_frame %>%
+  filter(!is.na(customers_served)) %>% 
   filter(customers_served >= 0)
 
-customers_served_by_city_utility_year_vector <- j$customers_served
+customers_served_by_city_utility_year_vector <- 
+  customers_served_frame$customers_served
 
+# write vector of customers served values
 write_rds(
   customers_served_by_city_utility_year_vector,
   here(
@@ -58,12 +64,16 @@ write_rds(
 # then want the distribution of percentage of customers out over the study 
 # period - start with customers out
 
-j <- j %>%
+customers_served_frame <- 
+  customers_served_frame %>%
   mutate(customers_served = case_when(is.na(customers_served) ~ customers_out,
                                       T ~ customers_served))
-j <- j %>% filter(customers_served >= 0)
+customers_served_frame <- 
+  customers_served_frame %>%
+  filter(customers_served >= 0)
 
-p_customers_out <- city_utility_time_series %>% left_join(j) %>%
+p_customers_out <- city_utility_time_series %>%
+  left_join(customers_served_frame) %>%
   mutate(p_customers_out = new_locf_rep / customers_served) %>% 
   filter(!is.na(p_customers_out)) %>%
   select(p_customers_out) %>% 
@@ -83,7 +93,8 @@ write_rds(
 
 # Pods by county ----------------------------------------------------------
 
-pods <- city_utility_time_series %>% 
+pods <- 
+  city_utility_time_series %>% 
   select(clean_state_name, clean_county_name, city_name, utility_name) %>%
   distinct() %>% 
   group_by(clean_state_name, clean_county_name) %>% 
@@ -104,8 +115,9 @@ write_rds(
 
 # Get information on length of outages and distribution -------------------
 
-p_customers_out <- city_utility_time_series %>%
-  left_join(j) %>%
+p_customers_out <- 
+  city_utility_time_series %>%
+  left_join(customers_served_frame) %>%
   mutate(p_customers_out = new_locf_rep / customers_served) %>%
   filter(!is.na(p_customers_out)) %>%
   select(p_customers_out,
