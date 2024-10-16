@@ -130,8 +130,8 @@ combined_df <-
 colnames(combined_df) <- c(
   "counties",
   "day",
-  "exposed_under_4_hr_def",
   "exposed_under_8_hr_def",
+  "exposed_under_4_hr_def",
   "exposed_under_12_hr_def"
 )
 
