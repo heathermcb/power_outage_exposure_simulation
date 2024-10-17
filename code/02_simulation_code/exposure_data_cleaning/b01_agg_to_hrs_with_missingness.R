@@ -45,13 +45,12 @@ process_file <- function(file_path, destination_folder) {
   # find what 10 percent of county customers looks like for each county, 
   # etc, for different levels of missingness 
   county_cust[, `:=`(
-    ten_p = floor(0.10 * customers_by_county),
-    thirty_p = floor(0.30 * customers_by_county),
+    twenty_p = floor(0.20 * customers_by_county),
     fifty_p = floor(0.50 * customers_by_county),
-    seventy_p = floor(0.70 * customers_by_county)
+    eighty_p = floor(0.80 * customers_by_county)
   )]
   
-  # get a running total of how manu customers were in this pod and the pods 
+  # get a running total of how many customers were in this pod and the pods 
   # before it 
   county_cust_by_pod <-
     county_cust_by_pod[, cum_customers := cumsum(customers_by_pod),
@@ -59,47 +58,46 @@ process_file <- function(file_path, destination_folder) {
   
   county_cust_by_pod <- county_cust[county_cust_by_pod, on = 'counties']
   
+  # flag to remove to get to the desired level of missingness
   county_cust_by_pod <- county_cust_by_pod[, `:=` (
-    remove_for_10_p_missing = fifelse(cum_customers <= ten_p, 1, 0),
-    remove_for_30_p_missing = fifelse(cum_customers <= thirty_p, 1, 0),
+    remove_for_20_p_missing = fifelse(cum_customers <= twenty_p, 1, 0),
     remove_for_50_p_missing = fifelse(cum_customers <= fifty_p, 1, 0),
-    remove_for_70_p_missing = fifelse(cum_customers <= seventy_p, 1, 0)
+    remove_for_80_p_missing = fifelse(cum_customers <= eighty_p, 1, 0)
   ) ]
   
+  # select to relevant columns
   county_cust_by_pod <-
     county_cust_by_pod[, .(
       counties,
       pod_id,
       customers_by_county,
-      remove_for_10_p_missing,
-      remove_for_30_p_missing,
+      remove_for_20_p_missing,
       remove_for_50_p_missing,
-      remove_for_70_p_missing
+      remove_for_80_p_missing
     )]
   
+  # rejoin indicators to remove
   po_data <- county_cust_by_pod[po_data, 
                                   on = c('counties', 'pod_id')]
   
+  # create new customer counts with missingness 
   po_data[, `:=` (
-    new_customer_counts_10p = fifelse(remove_for_10_p_missing == 1, 0, 
-                                      customers_out_counts),
-    new_customer_counts_30p = fifelse(remove_for_30_p_missing == 1, 0, 
+    new_customer_counts_20p = fifelse(remove_for_20_p_missing == 1, 0, 
                                       customers_out_counts),
     new_customer_counts_50p = fifelse(remove_for_50_p_missing == 1, 0, 
                                       customers_out_counts),
-    new_customer_counts_70p = fifelse(remove_for_70_p_missing == 1, 0,
+    new_customer_counts_80p = fifelse(remove_for_80_p_missing == 1, 0,
                                       customers_out_counts)
   )]
   
-  
+  # aggregate to county
   po_data <-
     po_data[, .(
       customers_out_ten_min_by_county = sum(customers_out_counts),
       customers_served_ten_min_by_county = sum(customers_by_pod),
-      customers_out_10_p_missing = sum(new_customer_counts_10p),
-      customers_out_30_p_missing = sum(new_customer_counts_30p),
+      customers_out_20_p_missing = sum(new_customer_counts_20p),
       customers_out_50_p_missing = sum(new_customer_counts_50p),
-      customers_out_70_p_missing = sum(new_customer_counts_70p)),
+      customers_out_80_p_missing = sum(new_customer_counts_80p)),
       by = .(counties, datetimes)]
   
 # back to agg -------------------------------------------------------------
@@ -115,10 +113,9 @@ process_file <- function(file_path, destination_folder) {
     po_data[, .(
       customers_out_hourly = round(mean(customers_out_ten_min_by_county)),
       customers_served_hourly = round(mean(customers_served_ten_min_by_county)),
-      customers_out_10_p_missing_hourly = round(mean(customers_out_10_p_missing)),
-      customers_out_30_p_missing_hourly = round(mean(customers_out_30_p_missing)),
+      customers_out_20_p_missing_hourly = round(mean(customers_out_20_p_missing)),
       customers_out_50_p_missing_hourly = round(mean(customers_out_50_p_missing)),
-      customers_out_70_p_missing_hourly = round(mean(customers_out_70_p_missing))
+      customers_out_80_p_missing_hourly = round(mean(customers_out_80_p_missing))
     ), by = .(counties, hour, chunk_id)]
   
   # define the output file path

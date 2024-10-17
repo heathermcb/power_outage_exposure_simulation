@@ -26,127 +26,155 @@ simed_dat <- list.files(
     'hourly_county_data_with_missingness'
   ),
   full.names = TRUE
-)
-
-simed_dat <- lapply(FUN = read_parquet, X = simed_dat)
-simed_dat <- rbindlist(simed_dat)
+) |>
+  lapply(read_parquet) |>
+  rbindlist()
 
 # Constants ---------------------------------------------------------------
 
 cut_points <- c(0.005)
-num_cores <- detectCores()
 
-# Do ----------------------------------------------------------------------
+# Add unique county ID ----------------------------------------------------
 
-# add unique county id
 distinct_dat <- unique(simed_dat[, .(counties, chunk_id)])
-# add unique ID column
 distinct_dat[, unique_id := .I]
 
-# join id
 simed_dat[distinct_dat, on = .(counties, chunk_id), 
           `:=`(unique_id = i.unique_id)]
 
-# make structure same as real POUS data
-simed_dat[, `:=`(
-  clean_county_name = as.character(unique_id),
-  clean_state_name = as.character(unique_id),
-  five_digit_fips = as.character(unique_id),
-  year = year(hour),
-  customers_served_total = customers_served_hourly
-)]
+# sample ------------------------------------------------------------------
 
+unique_counties <- unique(simed_dat$unique_id)
+sampled_counties <- sample(unique_counties, size = 10)  # Sample 10 counties
 
-# new ---------------------------------------------------------------------
+# Filter data to include only sampled counties
+sampled_simed_dat <- simed_dat[unique_id %in% sampled_counties]
 
-# we need to create datasets with all the pieces of the grid 
+# Function to process each chunk ------------------------------------------
 
-simed_dat <- simed_dat[, .(
-  clean_county_name,
-  clean_state_name,
-  five_digit_fips,
-  year,
-  hour,
-  customers_out_hourly,
-  customers_served_total
-)]
-
-
-# Get exposure chunk wise -------------------------------------------------
-
-# split data into 10 chunks ensuring counties with the same five_digit_fips
-# stay together
-simed_dat_chunks <- split(simed_dat, cut(as.integer(factor(
-  simed_dat$five_digit_fips
-)), 10, labels = FALSE))
-
-# Function to process each chunk
 process_chunk <- function(chunk, cut_point, duration) {
-  exposure <- get_exposure(chunk, cut_point = cut_point, 
-                           outage_duration = duration)
+  get_exposure(chunk, cut_point = cut_point, outage_duration = duration)
+}
+
+# Helper function to prepare data -----------------------------------------
+
+prepare_data <- function(data, customers_out_col) {
+  # get the correct column for missingness 
+  data[, `:=`(
+    clean_county_name = as.character(unique_id),
+    clean_state_name = as.character(unique_id),
+    five_digit_fips = as.character(unique_id),
+    year = year(hour),
+    customers_served_total = customers_served_hourly
+  )]
+  
+  # select relevant cols to look like real POUS data
+  data <- data[, .(
+    clean_county_name,
+    clean_state_name,
+    five_digit_fips,
+    year,
+    hour,
+    customers_served_total,
+    customers_out_hourly = get(customers_out_col)
+  )]
+  return(data)
+}
+
+# Process data with different missingness ---------------------------------
+
+process_missingness <- function(data, customers_out_col, suffix) {
+  
+  # process chunk wise bc of memory
+  chunks <- split(data, cut(as.integer(
+    factor(data$five_digit_fips)
+  ), 10, labels = FALSE))
+  
+  exposure <- rbindlist(lapply(
+    chunks,
+    process_chunk,
+    cut_point = 0.005,
+    duration = hours(8)
+  ))
+  
+  # rename exposure columns to include the suffix
+  setnames(
+    exposure,
+    old = grep("^exposed", names(exposure), value = TRUE),
+    new = paste0(grep("^exposed", names(exposure), value = TRUE), "_", suffix)
+  )
+  
   return(exposure)
 }
 
-# Process each chunk for different durations
-exposure_8_hrs <- rbindlist(lapply(
-  simed_dat_chunks,
-  process_chunk,
-  cut_point = 0.005,
-  duration = hours(8)
-))
+# None missing
+simed_dat_none_missing <- 
+  prepare_data(data = simed_dat, 
+               customers_out_col = "customers_out_hourly")
+exposure_none_missing <- 
+  process_missingness(data = simed_dat_none_missing, 
+                      customers_out_col = "customers_out_hourly", 
+                      suffix = "none_missing")
 
-exposure_12_hrs <- rbindlist(lapply(
-  simed_dat_chunks,
-  process_chunk,
-  cut_point = 0.005,
-  duration = hours(12)
-))
-exposure_4_hrs <- rbindlist(lapply(
-  simed_dat_chunks,
-  process_chunk,
-  cut_point = 0.005,
-  duration = hours(4)
-))
+# 20% missing
+simed_dat_20_p_missing <-
+  prepare_data(data = simed_dat, 
+               customers_out_col = "customers_out_20_p_missing_hourly")
+exposure_20_p_missing <-
+  process_missingness(data = simed_dat_20_p_missing,
+                      customers_out_col = "customers_out_20_p_missing_hourly",
+                      suffix = "20_p_missing")
 
-# Join --------------------------------------------------------------------
+# 50% missing
+simed_dat_50_p_missing <- 
+  prepare_data(data = simed_dat, 
+               customers_out_col = "customers_out_50_p_missing_hourly")
+exposure_50_p_missing <- 
+  process_missingness(data = simed_dat_50_p_missing,
+                      customers_out_col = "customers_out_50_p_missing_hourly", 
+                      suffix = "50_p_missing")
 
-all_exposures <- list(exposure_8_hrs, exposure_4_hrs, exposure_12_hrs)
+# 80% missing
+simed_dat_80_p_missing <- 
+  prepare_data(data = simed_dat, 
+               customers_out_col = "customers_out_80_p_missing_hourly")
+exposure_80_p_missing <- 
+  process_missingness(data = simed_dat_80_p_missing, 
+                      customers_out_col = "customers_out_80_p_missing_hourly", 
+                      suffix = "80_p_missing")
 
-combined_df <- Reduce(function(x, y)
-  merge(
-    x,
-    y,
-    by = c(
-      "clean_state_name",
-      "clean_county_name",
-      'five_digit_fips',
-      "day"
-    )
-  ), all_exposures)
+# Combine exposures -------------------------------------------------------
+
+all_exposures <- list(
+  exposure_none_missing,
+  exposure_20_p_missing,
+  exposure_50_p_missing,
+  exposure_80_p_missing
+)
+
+combined_df <- Reduce(function(x, y) {
+  merge(x,
+        y,
+        by = c(
+          "clean_state_name",
+          "clean_county_name",
+          'five_digit_fips',
+          "day"
+        ))
+}, all_exposures)
 
 exposure_cols <- grep("^exposed", names(combined_df), value = TRUE)
 
-combined_df <- 
-  combined_df %>%
+combined_df <- combined_df %>%
   select(county_id = five_digit_fips, day, all_of(exposure_cols))
-
-
-# leaving this here so we can match structure of previous ones
-colnames(combined_df) <- c(
-  "counties",
-  "day",
-  "exposed_under_4_hr_def",
-  "exposed_under_8_hr_def",
-  "exposed_under_12_hr_def"
-)
 
 # Write -------------------------------------------------------------------
 
 saveRDS(
-  all,
+  combined_df,
   here(
     "data",
     "power_outage_simulation_cleaned_data",
-    "days_exposed_unexposed_all_durations.RDS")
+    "days_exposed_unexposed_all_missingness.RDS"
+  )
 )
-
