@@ -226,7 +226,6 @@ create_one_simed_county <- function(i){
   
 }
 
-
 # Do ----------------------------------------------------------------------
 
 # Load the parallel package

@@ -1,6 +1,10 @@
 ### Create fake medicare data hospitalization data
 ### should probably code this in data.table
 
+# This should be some separate scripts. 
+# Want it to be generating data for the year, and then another selecting 
+# controls etc. 
+
 # Libraries ---------------------------------------------------------------
 
 library(here)
