@@ -1,12 +1,12 @@
 ### Create fake medicare data hospitalization data, for all effect sizes 
 ### and select data for both study design analyses. 
 
+# Author: Heather 
+# Last updated: Oct 17th, 2024
+
 # Libraries ---------------------------------------------------------------
 
-library(here)
-library(tidyverse)
-library(data.table)
-library(gtools)
+pacman::p_load(here, tidyverse, data.table, gtools)
 
 # Constants ---------------------------------------------------------------
 
@@ -21,11 +21,19 @@ effect_of_outage_5_p <- 0.00005
 
 # Read "exposure" data ----------------------------------------------------
 
-exp <- list.files(
+e <- readRDS(
   here(
-    "power_outage_medicare_data",
+    'data',
+    'power_outage_simulation_cleaned_data',
+    'days_exposed_unexposed_all_durations.RDS'
+  )
+)
+
+
+  here(
+    "data",
     "power_outage_simulation_cleaned_data",
-    "cleaned_4_8_12_hrs"
+    "days_exposed_unexposed_all_durations.RDS"
   ),
   full.names = T
 )

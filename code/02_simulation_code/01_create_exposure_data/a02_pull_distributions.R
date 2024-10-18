@@ -16,44 +16,34 @@ city_utility_time_series <- open_dataset(here(
   "power_outage_simulation_created_data",
   "city_utility_level_time_series"))
 
+city_utility_time_series <- rbindlist(lapply(X = list.files(here('data', 'power_outage_simulation_created_data', 'city_utility_level_time_series'), full.names = T)[1:10], FUN = read_parquet))
+
 customers_served_frame <- 
   city_utility_time_series %>%
-  filter(year == 2018) %>%
-  group_by(utility_name,
-           clean_state_name,
-           clean_county_name,
-           city_name,
-           year) %>%
-  summarize(
-    customers_served = max(customers_tracked, na.rm = TRUE),
-    customers_out = max(customers_out, na.rm = TRUE)
-  ) %>%
   select(
     clean_state_name,
     clean_county_name,
     city_name,
     utility_name,
     year,
-    customers_served,
-    customers_out
+    city_utility_customers_served_est
   ) %>%
   distinct() %>%
   collect()
 
-customers_served_frame <- 
-  customers_served_frame %>%
-  filter(!is.na(customers_served)) %>% 
-  filter(customers_served >= 0)
+customers_served_frame <- customers_served_frame %>%
+  filter(city_utility_customers_served_est >= 0) %>% 
+  filter(!is.na(city_utility_customers_served_est))
 
 customers_served_by_city_utility_year_vector <- 
-  customers_served_frame$customers_served
+  customers_served_frame$city_utility_customers_served_est
 
 # write vector of customers served values
 write_rds(
   customers_served_by_city_utility_year_vector,
   here(
     "data",
-    "power_outage_simulation_created_data",
+    "z_sample_data",
     "distribution_vectors",
     "customers_served_by_city_utility_year.RDS"
   )
@@ -64,19 +54,10 @@ write_rds(
 # then want the distribution of percentage of customers out over the study 
 # period - start with customers out
 
-customers_served_frame <- 
-  customers_served_frame %>%
-  mutate(customers_served = case_when(is.na(customers_served) ~ customers_out,
-                                      T ~ customers_served))
-customers_served_frame <- 
-  customers_served_frame %>%
-  filter(customers_served >= 0)
-
 p_customers_out <- city_utility_time_series %>%
-  left_join(customers_served_frame) %>%
-  mutate(p_customers_out = new_locf_rep / customers_served) %>% 
-  filter(!is.na(p_customers_out)) %>%
-  select(p_customers_out) %>% 
+  mutate(p_customers_out = new_locf_rep /
+           city_utility_customers_served_est) %>%
+  filter(!is.na(p_customers_out)) %>% 
   collect()
 
 percentage_customers_out_vector <- p_customers_out$p_customers_out
@@ -85,7 +66,7 @@ write_rds(
   percentage_customers_out_vector,
   here(
     "data",
-    "power_outage_simulation_created_data",
+    "z_sample_data",
     "distribution_vectors",
     "percent_customers_out_vector.RDS"
   )
@@ -107,13 +88,43 @@ write_rds(
   pods_by_county,
   here(
     "data",
-    "power_outage_simulation_created_data",
+    "z_sample_data",
     "distribution_vectors",
     "num_pods_by_county.RDS"
   )
 )
 
 # Get information on length of outages and distribution -------------------
+
+p_customers_out <- city_utility_time_series %>%
+  mutate(p_customers_out = new_locf_rep /
+           city_utility_customers_served_est) %>%
+  select(p_customers_out,
+         clean_state_name,
+         clean_county_name,
+         city_name,
+         utility_name) %>%
+  mutate(over_0 = 
+           case_when(p_customers_out > 0 ~ 1, TRUE ~ 0)) 
+%>%
+  collect()
+
+# get outage durations in 10 minute periods
+all_periods <- 
+  p_customers_out[, .(duration = rle(over_0)$lengths[rle(over_0)$values]), 
+                  by = .(clean_state_name, 
+                         clean_county_name, 
+                         city_name, 
+                         utility_name)]
+
+write_rds(all_periods, here(
+  "data",
+  "z_sample_data",
+  "distribution_vectors",
+  "length_of_outages.RDS"
+))
+
+
 
 p_customers_out <- 
   city_utility_time_series %>%
@@ -140,7 +151,7 @@ all_periods <-
 
 write_rds(all_periods, here(
   "data",
-  "power_outage_simulation_created_data",
+  "z_sample_data",
   "distribution_vectors",
   "length_of_outages.RDS"
 ))

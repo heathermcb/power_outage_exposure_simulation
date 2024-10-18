@@ -1,10 +1,12 @@
-# Expand Out Power Outages
-
 # This script expands power outage data into a time series, from its raw
 # form where the dataset only includes entries for changes in customers_out 
 # (see the POUS documentation for an explanation of how the raw data is
 # structured). It does this one county at a time, and expands to 10 min 
-# intervals. Saves data in 'power_outage_simulation_created_data'.
+# intervals. Saves data in 'power_outage_simulation_created_data'. See 
+# POUS documentation for an explanation of the structure of the POUS data.
+
+# This is here because we need to pull distributions from the city-utility 
+# series to run the simulation. 
 
 # Last updated: Oct 3rd, 2024
 # Author: Heather
@@ -35,15 +37,15 @@ max_nas_to_impute <- hour_thrshld / dminutes(x = 5)
 
 # fastest to do all years at once, taking advantage of data.table's 
 # infrastructure - excluding 2017 though bc it's garbage
-#intervals_2018 <- generate_intervals(2018)
+intervals_2018 <- generate_intervals(2018)
 #intervals_2019 <- generate_intervals(2019)
-intervals_2020 <- generate_intervals(2020)
+#intervals_2020 <- generate_intervals(2020)
 
 intervals_dt <-
   data.table(date = c(
-    #intervals_2018,
+    intervals_2018
    # intervals_2019,
-    intervals_2020
+   # intervals_2020
   ))
 
 # Wrapper for processing --------------------------------------------------
@@ -54,6 +56,11 @@ process_chunk <- function(i, pous_data) {
     get_chunk(raw_pous_data = pous_data, chunk_list = pous_l_split,
               list_position = i)
   
+  pous_dat_chunk <- pous_dat_chunk[lubridate::year(recorded_date_time) == 2018]
+
+  if (dim(pous_dat_chunk)[1] != 0){
+  
+    
   # get city-utility id frame
   city_utilities <- get_unique_city_utilities(pous_dat_chunk = pous_dat_chunk)
   
@@ -69,10 +76,7 @@ process_chunk <- function(i, pous_data) {
   # expand the data to ten min intervals
   pous_dat_chunk <- 
     expand_to_10_min_intervals(pous_dat_chunk = pous_dat_chunk)
-  
-  # replace -99 missing data indicators with NAs
-  pous_dat_chunk <- add_NAs_to_chunk(pous_dat_chunk = pous_dat_chunk)
-  
+
   # expand to a full year
   pous_dat_chunk <- 
     expand_to_full_year(pous_dat_chunk = pous_dat_chunk, 
@@ -81,8 +85,20 @@ process_chunk <- function(i, pous_data) {
   
   # add an additional time series with locf to the data 
   pous_dat_chunk <- 
-    add_locf_to_chunk(pous_dat_chunk = pous_dat_chunk,
-                      max_nas_to_impute = max_nas_to_impute)
+    add_locf_to_chunk_fill_in_gaps(pous_dat_chunk = pous_dat_chunk)
+  
+  
+  # replace -99 missing data indicators with NAs - need to edit this and see
+  # if it's working
+  pous_dat_chunk <- add_NAs_to_chunk(pous_dat_chunk = pous_dat_chunk)
+  
+  # do locf for 4 hrs to replace NAs 
+  pous_dat_chunk <- 
+    add_locf_to_chunk_impute_4_hrs_forward(pous_dat_chunk = pous_dat_chunk,
+                                           max_nas_to_impute = max_nas_to_impute)
+  
+  # note - if a gap is longer than 4 hrs, this doesn't impute anything at all
+  # it doesn't like, add the 4 hrs, and then stop, it just doesn't impute anything
   
   # add customer served estimates by city_utility to chunk 
   pous_dat_chunk <- calculate_customer_served_est(pous_dat_chunk)
@@ -95,15 +111,17 @@ process_chunk <- function(i, pous_data) {
     x = pous_dat_chunk,
     sink = here(
       "data",
-      "power_outage_simulation_created_data",
+      'power_outage_simulation_created_data',
       'city_utility_level_time_series',
       paste0(i,'_', "ten_min_data.parquet")
     )
   )
   print(paste("Processed chunk", i))
   print(dim(pous_dat_chunk))
-  print(sum(is.na(pous_dat_chunk$new_locf_rep))/length(pous_dat_chunk$new_locf_rep))
-}
+  print(sum(is.na(pous_dat_chunk$new_locf_rep)) /
+          length(pous_dat_chunk$new_locf_rep))
+  }
+  }
 
 # Data --------------------------------------------------------------------
 
@@ -128,6 +146,9 @@ pous_data <-
 
 pous_list <- sort(unique(pous_data$five_digit_fips))
 pous_l_split <- split(pous_list, ceiling(seq_along(pous_list) / 15))
+
+# for testing:
+# pous_l_split <- split(pous_list, ceiling(seq_along(pous_list) / 15))[20:40]
 
 # Do ----------------------------------------------------------------------
 

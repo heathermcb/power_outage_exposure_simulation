@@ -64,27 +64,19 @@ samples_length_of_outage <- read_rds(
 
 samples_length_of_outage <- samples_length_of_outage$duration
 
+source(
+  here(
+    "code",
+    "01_power_outage_US_2017_2020_data_cleaning",
+    "functions",
+    "exposure_data_cleaning_helpers.R"
+  )
+)
 
 # Same for every iteration ------------------------------------------------
+
 # get sequence of 10 minute intervals
-second_seq <- seq(from = 0, to = 86400, by =  600)
-
-# get dates for a year
-k <-
-  as.numeric(as.POSIXct(seq.Date(
-    from = ymd("2019-01-01"),
-    to = ymd('2019-12-31'),
-    by = 'day'
-  )))
-
-# combine to get 10-minute intervals over a year to join to other stuff 
-ten_min_intervals <- CJ(k, second_seq)
-
-ten_min_intervals <-
-  ten_min_intervals[, ten_min_seq := k + second_seq
-  ][, ten_min_seq := as_datetime(ten_min_seq)
-  ][, list(ten_min_seq)]
-
+ten_min_intervals <- data.frame(ten_min_seq = generate_intervals(2018))
 
 # Function to create simed counties ---------------------------------------
 
@@ -121,11 +113,11 @@ create_one_simed_county <- function(i){
   # add outages -------------------------------------------------------------
   
   # need to sample this many outage lengths we need to sample to have around 
-  # 1% of our observations out; based on data investigation we did about the 
+  # 6% of our observations out; based on data investigation we did about the 
   # distribution of outages in the data
 
   n1 <-
-    floor(dim(county_specific_backbone)[[1]] * 0.02 / 
+    floor(dim(county_specific_backbone)[[1]] * 0.008 / 
             mean(samples_length_of_outage)) 
   # mean outage length is 36 mins
   # n1 gives us the number of outages to average 6% of time out
@@ -225,7 +217,6 @@ create_one_simed_county <- function(i){
   )
   
 }
-
 
 # Do ----------------------------------------------------------------------
 

@@ -15,7 +15,14 @@
 # i pacmaned in all these scripts for u lauren
 pacman::p_load(tidyverse, zoo, here, lubridate, data.table, fst)
 
-source(here("code", "functions", "exposure_data_cleaning_helpers_oct_9.R"))
+source(
+  here(
+    "code",
+    "01_power_outage_US_2017_2020_data_cleaning",
+    "functions",
+    "exposure_data_cleaning_helpers.R"
+  )
+)
 
 # Constants ---------------------------------------------------------------
 

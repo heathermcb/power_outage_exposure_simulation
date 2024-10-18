@@ -138,7 +138,7 @@ colnames(combined_df) <- c(
 # Write -------------------------------------------------------------------
 
 saveRDS(
-  all,
+  combined_df,
   here(
     "data",
     "power_outage_simulation_cleaned_data",

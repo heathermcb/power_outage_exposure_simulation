@@ -167,7 +167,7 @@ expand_to_10_min_intervals <- function(pous_dat_chunk){
 add_NAs_to_chunk <- function(pous_dat_chunk){
   # replace -99 marker with NA 
   pous_dat_chunk[, customers_out_api_on :=
-                   ifelse(customers_out == -99, NA, customers_out)]
+                   ifelse(customers_out_api_on == -99, NA, customers_out_api_on)]
   return(pous_dat_chunk)
   
 }
@@ -207,26 +207,36 @@ expand_to_full_year <- function(pous_dat_chunk,
     year,
     recorded_date_time,
     customers_tracked,
-    customers_out,
-    customers_out_api_on
+    customers_out
   )]
 
   return(pous_dat_chunk)
 }
 
 # add last observation carried forward to time series in chunk
-add_locf_to_chunk <- function(pous_dat_chunk, max_nas_to_impute){
+add_locf_to_chunk_fill_in_gaps <- function(pous_dat_chunk){
   
   # old
-  pous_dat_chunk[, new_locf_rep := zoo::na.locf(
-    customers_out_api_on,
-    na.rm = FALSE,
-    maxgap = max_nas_to_impute
+  pous_dat_chunk[, customers_out_api_on := zoo::na.locf(
+    customers_out,
+    na.rm = FALSE
   ), by = c("city_utility_name_id")]
+  
+  return(pous_dat_chunk)
+}
+
+# add last observation carried forward to time series in chunk
+add_locf_to_chunk_impute_4_hrs_forward <- 
+  function(pous_dat_chunk, max_nas_to_impute) {
+  pous_dat_chunk[, 
+  new_locf_rep := zoo::na.locf(customers_out_api_on, 
+  na.rm = FALSE, maxgap = max_nas_to_impute), 
+  by = c("city_utility_name_id")]
   
   pous_dat_chunk[, c("recorded_date_time") := NULL]
   return(pous_dat_chunk)
 }
+
 
 calculate_customer_served_est <- function(pous_dat_chunk){
   
