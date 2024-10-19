@@ -17,12 +17,12 @@ source_folder <-
 
 destination_folder <-
   here('data',
-       'power_outage_simulation_created_data',
+       'power_outage_simulation_cleaned_data',
        'hourly_county_data_with_missingness')
 
-# get files to read
+# get files to read - sort so same id assigned in both scripts
 simed_data_files <- 
-  list.files(source_folder, pattern = "\\.RDS$", full.names = TRUE)
+  sort(list.files(source_folder, pattern = "\\.RDS$", full.names = TRUE))
 
 # Wrapper for aggregation -------------------------------------------------
 
@@ -102,10 +102,6 @@ process_file <- function(file_path, destination_folder) {
   
 # back to agg -------------------------------------------------------------
   
-  # add chunk_id column based on file index
-  chunk_id <- which(simed_data_files == file_path)
-  po_data[, chunk_id := chunk_id]
-  
   # aggregate to hour
   po_data <- po_data[, hour := floor_date(datetimes, unit = 'hour')]
   
@@ -116,8 +112,8 @@ process_file <- function(file_path, destination_folder) {
       customers_out_20_p_missing_hourly = round(mean(customers_out_20_p_missing)),
       customers_out_50_p_missing_hourly = round(mean(customers_out_50_p_missing)),
       customers_out_80_p_missing_hourly = round(mean(customers_out_80_p_missing))
-    ), by = .(counties, hour, chunk_id)]
-  
+    ), by = .(counties, hour)]
+    
   # define the output file path
   output_file_path <-
     file.path(destination_folder,

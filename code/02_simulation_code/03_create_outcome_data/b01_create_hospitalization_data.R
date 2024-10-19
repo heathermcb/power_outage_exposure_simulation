@@ -21,31 +21,33 @@ exp_data <- readRDS(here(
   'data',
   'power_outage_simulation_cleaned_data',
   'missingness_grid.RDS'
-))
+)) 
 
 denom <- list.files(
   here(
     "data",
-    "power_outage_simulation_created_data",
+    "power_outage_simulation_cleaned_data",
     "hourly_county_data_with_missingness"
   ),
   full.names = T
 )
+
+
+# Add customer served estimates -------------------------------------------
+
 denom <- rbindlist(lapply(FUN = read_parquet, X = denom))
 
-# add unique county id
-distinct_dat <- unique(denom[, .(counties, chunk_id)])
-# add unique ID column
-distinct_dat[, unique_id := .I]
-
-denom <- merge(denom,
-               distinct_dat,
-               by = intersect(names(denom), names(distinct_dat)),
-               all.x = TRUE)
-
 denom <- denom %>%
-  select(county_id = unique_id, customers_served_hourly) %>%
+  filter(!is.na(unique_county_id)) %>%
+  select(county_id = unique_county_id, customers_served_hourly) %>%
   distinct() %>%
-  mutate(county_id = as.character(county_id))
+  mutate(county_id = as.numeric(county_id))
 
-exp_data <- exp_data %>% left_join(denom)
+exp_data <- exp_data %>%
+  left_join(denom) 
+
+%>%
+  mutate(customers_served_hourly = 
+           ifelse(is.na(customers_served_hourly), 0, customers_served_hourly))
+
+

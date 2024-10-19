@@ -22,7 +22,7 @@ source(
 simed_dat <- list.files(
   here(
     "data",
-    'power_outage_simulation_created_data',
+    'power_outage_simulation_cleaned_data',
     'hourly_county_data_with_missingness'
   ),
   full.names = TRUE
@@ -33,22 +33,6 @@ simed_dat <- list.files(
 # Constants ---------------------------------------------------------------
 
 cut_points <- c(0.005)
-
-# Add unique county ID ----------------------------------------------------
-
-distinct_dat <- unique(simed_dat[, .(counties, chunk_id)])
-distinct_dat[, unique_id := .I]
-
-simed_dat[distinct_dat, on = .(counties, chunk_id), 
-          `:=`(unique_id = i.unique_id)]
-
-# sample ------------------------------------------------------------------
-
-unique_counties <- unique(simed_dat$unique_id)
-sampled_counties <- sample(unique_counties, size = 10)  # Sample 10 counties
-
-# Filter data to include only sampled counties
-sampled_simed_dat <- simed_dat[unique_id %in% sampled_counties]
 
 # Function to process each chunk ------------------------------------------
 
@@ -61,9 +45,9 @@ process_chunk <- function(chunk, cut_point, duration) {
 prepare_data <- function(data, customers_out_col) {
   # get the correct column for missingness 
   data[, `:=`(
-    clean_county_name = as.character(unique_id),
-    clean_state_name = as.character(unique_id),
-    five_digit_fips = as.character(unique_id),
+    clean_county_name = as.character(counties),
+    clean_state_name = as.character(counties),
+    five_digit_fips = as.character(counties),
     year = year(hour),
     customers_served_total = customers_served_hourly
   )]
@@ -166,7 +150,7 @@ combined_df <- Reduce(function(x, y) {
 exposure_cols <- grep("^exposed", names(combined_df), value = TRUE)
 
 combined_df <- combined_df %>%
-  select(county_id = five_digit_fips, day, all_of(exposure_cols))
+  select(counties = five_digit_fips, day, all_of(exposure_cols))
 
 # Write -------------------------------------------------------------------
 

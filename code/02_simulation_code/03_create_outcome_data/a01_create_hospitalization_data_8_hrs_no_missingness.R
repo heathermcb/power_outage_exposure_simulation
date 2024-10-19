@@ -21,7 +21,7 @@ effect_of_outage_5_p <- 0.00005
 
 # Read "exposure" data ----------------------------------------------------
 
-e <- readRDS(
+exp_dat <- readRDS(
   here(
     'data',
     'power_outage_simulation_cleaned_data',

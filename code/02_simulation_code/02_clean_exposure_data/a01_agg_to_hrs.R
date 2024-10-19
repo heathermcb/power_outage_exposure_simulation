@@ -18,13 +18,12 @@ source_folder <-
 
 destination_folder <-
   here('data',
-       'power_outage_simulation_created_data',
+       'power_outage_simulation_cleaned_data',
        'hourly_county_data')
 
-# get files to read
+# get files to read - sort so same id assigned in both scripts
 simed_data_files <- 
-  list.files(source_folder, pattern = "\\.RDS$", full.names = TRUE)
-
+  sort(list.files(source_folder, pattern = "\\.RDS$", full.names = TRUE))
 
 # Wrapper for aggregation -------------------------------------------------
 
@@ -34,13 +33,8 @@ process_file <- function(file_path, destination_folder) {
   po_data <- read_rds(file_path) |> setDT()
   setnames(po_data, old = 'ten_min_times', new = 'datetimes')
   
-  # add chunk_id column based on file index
-  chunk_id <- which(simed_data_files == file_path)
-  po_data[, chunk_id := chunk_id]
-  
   # aggregate to hour 
   po_data <- po_data[order(
-    chunk_id,
     counties,
     pod_id,
     customers_by_pod,
@@ -51,7 +45,7 @@ process_file <- function(file_path, destination_folder) {
     po_data[, .(
       customers_out_ten_min_by_county = sum(customers_out_counts),
       customers_served_ten_min_by_county = sum(customers_by_pod)),
-      by = .(counties, datetimes, chunk_id)]
+      by = .(counties, datetimes)]
   
   po_data <- po_data[, hour := floor_date(datetimes, unit = 'hour')]
   
@@ -59,7 +53,7 @@ process_file <- function(file_path, destination_folder) {
     po_data[, .(
       customers_out_hourly = round(mean(customers_out_ten_min_by_county)),
       customers_served_hourly = round(mean(customers_served_ten_min_by_county))
-    ), by = .(counties, hour, chunk_id)]
+    ), by = .(counties, hour)]
   
   # define the output file path
   output_file_path <-

@@ -22,14 +22,13 @@ source(
 simed_dat <- list.files(
   here(
     "data",
-    'power_outage_simulation_created_data',
+    'power_outage_simulation_cleaned_data',
     'hourly_county_data'
   ),
   full.names = TRUE
 )
 
-simed_dat <- lapply(FUN = read_parquet, X = simed_dat)
-simed_dat <- rbindlist(simed_dat)
+simed_dat <- rbindlist(lapply(FUN = read_parquet, X = simed_dat))
 
 # Constants ---------------------------------------------------------------
 
@@ -38,20 +37,11 @@ num_cores <- detectCores()
 
 # Do ----------------------------------------------------------------------
 
-# add unique county id
-distinct_dat <- unique(simed_dat[, .(counties, chunk_id)])
-# add unique ID column
-distinct_dat[, unique_id := .I]
-
-# join id
-simed_dat[distinct_dat, on = .(counties, chunk_id), 
-          `:=`(unique_id = i.unique_id)]
-
 # make structure same as real POUS data
 simed_dat[, `:=`(
-  clean_county_name = as.character(unique_id),
-  clean_state_name = as.character(unique_id),
-  five_digit_fips = as.character(unique_id),
+  clean_county_name = as.character(counties),
+  clean_state_name = as.character(counties),
+  five_digit_fips = as.character(counties),
   year = year(hour),
   customers_served_total = customers_served_hourly
 )]
@@ -123,7 +113,7 @@ exposure_cols <- grep("^exposed", names(combined_df), value = TRUE)
 
 combined_df <- 
   combined_df %>%
-  select(county_id = five_digit_fips, day, all_of(exposure_cols))
+  select(counties = five_digit_fips, day, all_of(exposure_cols))
 
 
 # leaving this here so we can match structure of previous ones

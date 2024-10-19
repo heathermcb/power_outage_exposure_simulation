@@ -16,7 +16,14 @@ city_utility_time_series <- open_dataset(here(
   "power_outage_simulation_created_data",
   "city_utility_level_time_series"))
 
-city_utility_time_series <- rbindlist(lapply(X = list.files(here('data', 'power_outage_simulation_created_data', 'city_utility_level_time_series'), full.names = T)[1:10], FUN = read_parquet))
+# city_utility_time_series <- rbindlist(lapply(X = list.files(
+#   here(
+#     'data',
+#     'power_outage_simulation_created_data',
+#     'city_utility_level_time_series'
+#   ),
+#   full.names = T
+# )[1:10], FUN = read_parquet))
 
 customers_served_frame <- 
   city_utility_time_series %>%
@@ -43,7 +50,7 @@ write_rds(
   customers_served_by_city_utility_year_vector,
   here(
     "data",
-    "z_sample_data",
+    "power_outage_simulation_created_data",
     "distribution_vectors",
     "customers_served_by_city_utility_year.RDS"
   )
@@ -61,12 +68,16 @@ p_customers_out <- city_utility_time_series %>%
   collect()
 
 percentage_customers_out_vector <- p_customers_out$p_customers_out
+percentage_customers_out_vector_sample <-
+  sample(percentage_customers_out_vector,
+         size = 500000000,
+         replace = T)
 
 write_rds(
-  percentage_customers_out_vector,
+  percentage_customers_out_vector_sample,
   here(
     "data",
-    "z_sample_data",
+    "power_outage_simulation_created_data",
     "distribution_vectors",
     "percent_customers_out_vector.RDS"
   )
@@ -88,13 +99,21 @@ write_rds(
   pods_by_county,
   here(
     "data",
-    "z_sample_data",
+    "power_outage_simulation_created_data",
     "distribution_vectors",
     "num_pods_by_county.RDS"
   )
 )
 
 # Get information on length of outages and distribution -------------------
+
+# read the first 100 million rows only since R can't handle all
+city_utility_time_series <- open_dataset(here(
+  "data",
+  "power_outage_simulation_created_data",
+  "city_utility_level_time_series")) %>%
+  head(100000000) %>%
+  collect()
 
 p_customers_out <- city_utility_time_series %>%
   mutate(p_customers_out = new_locf_rep /
@@ -104,56 +123,25 @@ p_customers_out <- city_utility_time_series %>%
          clean_county_name,
          city_name,
          utility_name) %>%
+  filter(!is.na(p_customers_out)) %>%
   mutate(over_0 = 
            case_when(p_customers_out > 0 ~ 1, TRUE ~ 0)) 
-%>%
-  collect()
+
 
 # get outage durations in 10 minute periods
-all_periods <- 
-  p_customers_out[, .(duration = rle(over_0)$lengths[rle(over_0)$values]), 
-                  by = .(clean_state_name, 
-                         clean_county_name, 
-                         city_name, 
-                         utility_name)]
+# calculate outage_lengths as a vector
+non_zero_lengths <- p_customers_out[, {
+  rle_result <- rle(over_0)
+  list(outage_lengths = rle_result$lengths[rle_result$values != 0])
+}, by = .(clean_state_name, clean_county_name, city_name, utility_name)]
 
-write_rds(all_periods, here(
+# extract outage_lengths as a vector
+outage_lengths_vector <- unlist(non_zero_lengths$outage_lengths)
+
+write_rds(outage_lengths_vector, here(
   "data",
-  "z_sample_data",
+  "power_outage_simulation_created_data",
   "distribution_vectors",
   "length_of_outages.RDS"
 ))
-
-
-
-p_customers_out <- 
-  city_utility_time_series %>%
-  left_join(customers_served_frame) %>%
-  mutate(p_customers_out = new_locf_rep / customers_served) %>%
-  filter(!is.na(p_customers_out)) %>%
-  select(p_customers_out,
-         clean_state_name,
-         clean_county_name,
-         city_name,
-         utility_name) %>%
-  mutate(over_0 = 
-           case_when(p_customers_out > 0 ~ 1, TRUE ~ 0)) %>%
-  collect()
-
-setDT(p_customers_out)
-# get outage durations in 10 minute periods
-all_periods <- 
-  p_customers_out[, .(duration = rle(over_0)$lengths[rle(over_0)$values]), 
-                  by = .(clean_state_name, 
-                         clean_county_name, 
-                         city_name, 
-                         utility_name)]
-
-write_rds(all_periods, here(
-  "data",
-  "z_sample_data",
-  "distribution_vectors",
-  "length_of_outages.RDS"
-))
-
 

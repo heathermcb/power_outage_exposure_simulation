@@ -59,10 +59,8 @@ samples_length_of_outage <- read_rds(
     "distribution_vectors",
     "length_of_outages.RDS"
   )
-) %>%
-  filter(!is.na(duration))
+) 
 
-samples_length_of_outage <- samples_length_of_outage$duration
 
 source(
   here(
@@ -84,7 +82,7 @@ create_one_simed_county <- function(i){
   
   # first make dataset backbone --------------------------------------------
   # create counties
-  dat <- data.table(counties = 1:25)
+  dat <- data.table(counties = (i - 1)*25 + 1:25)
   
   # add number of pods by county
   dat <-
@@ -95,6 +93,7 @@ create_one_simed_county <- function(i){
   dat <-
     dat[, list(list_of_pods = as.character(unlist(list_of_pods))),
         by = list(counties)]
+  
   
   # add customers by pod
   dat[, customers_by_pod := remp(nrow(.SD), obs = customers_served)]
@@ -117,10 +116,10 @@ create_one_simed_county <- function(i){
   # distribution of outages in the data
 
   n1 <-
-    floor(dim(county_specific_backbone)[[1]] * 0.008 / 
+    floor(dim(county_specific_backbone)[[1]] * 0.05 / 
             mean(samples_length_of_outage)) 
-  # mean outage length is 36 mins
-  # n1 gives us the number of outages to average 6% of time out
+  # mean outage length is ?? calculate this
+  # n1 gives us the number of outages to average 5% of time out
   # this is actual outage lengths according to empirical dist
   outage_lengths <- remp(n1, samples_length_of_outage) 
   # give the outage lengths a label
@@ -211,7 +210,7 @@ create_one_simed_county <- function(i){
     here(
       "data",
       "power_outage_simulation_created_data",
-      paste0("exposure_datasets"),
+      'exposure_datasets',
       paste0("400_counties_", i, ".RDS")
     )
   )

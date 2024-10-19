@@ -1,5 +1,13 @@
 # power_outage_exposure_simulation progress notes 
 
+Oct 18th:
+
+- fixed county id issue up until b02_clean_exposure_data_with_missingness
+- need to deal with county id type issues in cleaning scripts
+- need to save customers served file somewhere in pipeline so it's easy to read 
+in when creating outcome data 
+- need to update/write run_all scripts. 
+
 This is the document where we write what we did, transcribe meeting notes, and 
 write next steps. 
 
