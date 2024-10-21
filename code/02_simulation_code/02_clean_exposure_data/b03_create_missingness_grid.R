@@ -52,17 +52,19 @@ exp_dat <- readRDS(
     'power_outage_simulation_cleaned_data',
     'days_exposed_unexposed_all_missingness.RDS'
   )
-)
+) |> mutate(counties = as.numeric(counties))
+
+exp_dat <- exp_dat %>% arrange(counties, day)
 
 # Create group_id and within_group_id columns -----------------------------
 
 # create a group_id column for each group of counties that will be one 
 # simulation
-# 100 groups, each with 100 counties, each with 366 days
-exp_dat$group_id <- rep(1:100, each = 100 * 366)  
+# 100 groups, each with 100 counties, each with 365 days
+exp_dat$group_id <- rep(1:100, each = 100 * 365)  
 
 # create a within_group_id column that goes from 1 to 100 within each group
-exp_dat$within_group_id <- rep(rep(1:100, each = 366), times = 100)
+exp_dat$within_group_id <- rep(rep(1:100, each = 365), times = 100)
 
 # Parameters --------------------------------------------------------------
 

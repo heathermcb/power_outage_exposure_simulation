@@ -14,14 +14,14 @@ baseline_hosp_rate <- 0.001 # putting this at .1% of people per day
 exp_data <- readRDS(here(
   'data',
   'power_outage_simulation_cleaned_data',
-  'missingness_grid.RDS'
+  'days_exposed_unexposed_all_durations.RDS'
 )) 
 
 denom <- list.files(
   here(
     "data",
     "power_outage_simulation_cleaned_data",
-    "hourly_county_data_with_missingness"
+    "hourly_county_data"
   ),
   full.names = T
 )
@@ -99,17 +99,17 @@ for (i in seq_along(to_generate_outcome_on)) {
 
 outcome_data <- exp_data %>%
   select(
-  counties,
-  day,
-  customers_served_hourly,
-  exposed_8_hrs_0.005_none_missing,
-  outcome_m_col_20p_missing_20_0.5p:outcome_m_col_80p_missing_80_5p
-)
+    counties,
+    day,
+    customers_served_hourly,
+    exposed_8_hrs_0.005_none_missing,
+    outcome_m_col_20p_missing_20_0.5p:outcome_m_col_80p_missing_80_5p
+  )
 
 write_rds(outcome_data,
-  here(
-    "data",
-    'simulated_hospitalization_outcome_data',
-    'all_levels_missingness.RDS'
-  )
+          here(
+            "data",
+            'simulated_hospitalization_outcome_data',
+            'all_levels_missingness.RDS'
+          )
 )
