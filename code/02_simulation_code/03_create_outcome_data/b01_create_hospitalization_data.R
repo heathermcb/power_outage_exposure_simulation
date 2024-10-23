@@ -9,22 +9,7 @@ pacman::p_load(here, tidyverse, data.table, gtools, arrow)
 baseline_hosp_rate <- 0.001 # putting this at .1% of people per day
 # is similar to real medicare hospitalization rate
 
-# Read --------------------------------------------------------------------
-
-exp_data <- readRDS(here(
-  'data',
-  'power_outage_simulation_cleaned_data',
-  'missingness_grid.RDS'
-)) 
-
-denom <- list.files(
-  here(
-    "data",
-    "power_outage_simulation_cleaned_data",
-    "hourly_county_data_with_missingness"
-  ),
-  full.names = T
-)
+# Function ----------------------------------------------------------------
 
 # want to write a helper that takes in an exposure column and an affect size,
 # and an output colname and creates 
@@ -42,7 +27,7 @@ add_outcome_column <- function(data,
   lambda <- lambda * data$customers_served_hourly
   
   # generate hospitalization rate using Poisson distribution
-  rate <- rpois(length(lambda), lambda)
+  rate <- rpois(n = length(lambda), lambda = lambda)
   
   # create the dynamic outcome column name
   dynamic_output_col_name <- paste0(output_col_name, '_', effect_size_name)
@@ -53,6 +38,22 @@ add_outcome_column <- function(data,
   return(data)
 }
 
+# Read --------------------------------------------------------------------
+
+exp_data <- readRDS(here(
+  'data',
+  'power_outage_simulation_cleaned_data',
+  'missingness_grid.RDS'
+)) 
+
+denom <- list.files(
+  here(
+    "data",
+    "power_outage_simulation_cleaned_data",
+    "hourly_county_data_with_missingness"
+  ),
+  full.names = T
+)
 
 # Add customer served estimates -------------------------------------------
 
@@ -77,8 +78,8 @@ to_generate_outcome_on <-
 names_of_outcome <- paste0('outcome_', to_generate_outcome_on)
 
 # these are the rate changes with outages, for different effect sizes
-effects_of_outage <- c(0.000005, 0.00001, 0.00005)
-effect_names <- c('0.5p', '1p', '5p')
+effects_of_outage <- c(0.0005, 0.00001, 0.00005)
+effect_names <- c('5p', '1p', '0.5p')
 
 for (i in seq_along(to_generate_outcome_on)) {
   for (j in seq_along(effects_of_outage)) {
@@ -103,7 +104,7 @@ outcome_data <- exp_data %>%
   day,
   customers_served_hourly,
   exposed_8_hrs_0.005_none_missing,
-  outcome_m_col_20p_missing_20_0.5p:outcome_m_col_80p_missing_80_5p
+  outcome_exposed_8_hrs_0.005_none_missing_5p:outcome_m_col_80p_missing_80_5p
 )
 
 write_rds(outcome_data,

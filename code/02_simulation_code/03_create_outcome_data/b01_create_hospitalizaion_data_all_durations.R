@@ -15,7 +15,8 @@ exp_data <- readRDS(here(
   'data',
   'power_outage_simulation_cleaned_data',
   'days_exposed_unexposed_all_durations.RDS'
-)) 
+)) |> 
+  mutate(counties = as.numeric(counties))
 
 denom <- list.files(
   here(
@@ -71,7 +72,7 @@ exp_data <- exp_data %>% left_join(denom)
 
 # exposure cols to use 
 to_generate_outcome_on <- 
-  c('exposed_8_hrs_0.005_none_missing', colnames(exp_data)[9:17])
+  c(colnames(exp_data)[3:5])
 
 # outcome col names
 names_of_outcome <- paste0('outcome_', to_generate_outcome_on)
@@ -102,14 +103,17 @@ outcome_data <- exp_data %>%
     counties,
     day,
     customers_served_hourly,
-    exposed_8_hrs_0.005_none_missing,
-    outcome_m_col_20p_missing_20_0.5p:outcome_m_col_80p_missing_80_5p
+    exposed_under_8_hr_def,
+    outcome_exposed_under_8_hr_def_0.5p:outcome_exposed_under_12_hr_def_5p
   )
 
 write_rds(outcome_data,
           here(
             "data",
             'simulated_hospitalization_outcome_data',
-            'all_levels_missingness.RDS'
+            'all_durations.RDS'
           )
 )
+
+
+
