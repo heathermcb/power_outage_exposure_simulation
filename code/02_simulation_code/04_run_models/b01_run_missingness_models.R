@@ -64,7 +64,7 @@ cases_and_controls <-
   rbindlist(list(days_exposed_8_hrs, sampled_controls), use.names = T)
 
 cases_and_controls <- split(cases_and_controls, by = 'group_id')
-l <- colnames(cases_and_controls[[1]])[5:31]
+l <- colnames(cases_and_controls[[1]])[5:34]
 
 # Model -------------------------------------------------------------------
 

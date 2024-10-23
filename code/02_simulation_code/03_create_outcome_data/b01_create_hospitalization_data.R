@@ -78,8 +78,8 @@ to_generate_outcome_on <-
 names_of_outcome <- paste0('outcome_', to_generate_outcome_on)
 
 # these are the rate changes with outages, for different effect sizes
-effects_of_outage <- c(0.0005, 0.00001, 0.00005)
-effect_names <- c('5p', '1p', '0.5p')
+effects_of_outage <- c(0.000005, 0.00001, 0.00005)
+effect_names <- c('0.5p', '1p', '5p')
 
 for (i in seq_along(to_generate_outcome_on)) {
   for (j in seq_along(effects_of_outage)) {
@@ -104,7 +104,7 @@ outcome_data <- exp_data %>%
   day,
   customers_served_hourly,
   exposed_8_hrs_0.005_none_missing,
-  outcome_exposed_8_hrs_0.005_none_missing_5p:outcome_m_col_80p_missing_80_5p
+  outcome_exposed_8_hrs_0.005_none_missing_0.5p:outcome_m_col_80p_missing_80_5p
 )
 
 write_rds(outcome_data,

@@ -78,7 +78,7 @@ to_generate_outcome_on <-
 names_of_outcome <- paste0('outcome_', to_generate_outcome_on)
 
 # these are the rate changes with outages, for different effect sizes
-effects_of_outage <- c(0.000005, 0.00001, 0.00005)
+effects_of_outage <- c(0.0000005, 0.00001, 0.000005)
 effect_names <- c('0.5p', '1p', '5p')
 
 for (i in seq_along(to_generate_outcome_on)) {
