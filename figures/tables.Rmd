@@ -1,0 +1,196 @@
+---
+title: "Tables for power outage simulation"
+author: "Heather McBrien"
+date: "2024-10-24"
+output: html_document
+---
+
+```{r}
+knitr::opts_chunk$set(echo = TRUE)
+# Plot results from DID and CC missingness analyses for manuscript, as well as
+# make tables and coverage figures
+
+# Libraries ---------------------------------------------------------------
+
+pacman::p_load(here, tidyverse, data.table)
+
+# Read --------------------------------------------------------------------
+
+did <- read_rds(here(
+  'results',
+  'simulation_model_output',
+  'results_all_missingness_DID.RDS'
+)) |> setDT()
+
+# extract info from model labels
+did[, `:=`(
+  percent_affected = sub(".*_(\\d+\\.?\\d*)p_.*", "\\1", outcome),
+  percent_missing = sub(".*_missing_(\\d+)_.*", "\\1", outcome),
+  effect_size = sub(".*_(\\d+\\.?\\d*p)$", "\\1", outcome)
+)]
+
+# fix none missing case
+did[, `:=`(
+  percent_affected = ifelse(
+    grepl("outcome_exposed_8_hrs_0.005_none_missing", outcome),
+    0,
+    percent_affected
+  ),
+  percent_missing = ifelse(
+    grepl("outcome_exposed_8_hrs_0.005_none_missing", outcome),
+    0,
+    percent_missing
+  )
+)]
+
+# order factors correctly
+did$percent_affected <-
+  factor(did$percent_affected, levels = c("80", "50", "20", '0'))
+did$percent_missing <-
+  factor(did$percent_missing, levels = c("20", "50", "80", '0'))
+
+# map effect_size to numeric values
+did[, effect := case_when(
+  effect_size == '5p' ~ 0.05,
+  effect_size == '1p' ~ 0.01,
+  effect_size == '0.5p' ~ 0.005
+)]
+
+# calculate bias 
+did[, percent_bias := ((estimate - effect)/effect) * 100]
+
+# add effect size labels 
+did <- did %>% mutate(
+  effect_size = case_when(
+    effect_size == '0.5p' ~ ".5% increase",
+    effect_size == '1p' ~ "1% increase",
+    effect_size == '5p' ~ "5% increase"
+  )
+)
+
+# coverage tables
+
+coverage <- 
+  did %>%
+  mutate(covered = ifelse(effect < upper_ci & effect > lower_ci, 1, 0))
+
+coverage <-
+  coverage %>%
+  group_by(percent_missing, percent_affected, effect_size) %>%
+  summarize(mean_percent_bias = mean(percent_bias),
+            coverage = mean(covered)*100)
+
+coverage <- coverage %>% filter(percent_affected == 80 | percent_affected == 0)
+
+coverage <- coverage %>%
+  mutate(bias_coverage = paste0(round(mean_percent_bias, 1), "% (", round(coverage, 1), "%)"))
+
+coverage <- coverage %>%
+  mutate(column_header = paste0(percent_missing, "% of counties missing ", percent_affected, "% of data"))
+
+o <- coverage %>%
+  ungroup() %>% 
+  select(effect_size, column_header, bias_coverage) %>%
+  pivot_wider(names_from = column_header, values_from = bias_coverage)
+
+column_order <- c("effect_size", "0% of counties missing 0% of data", "80% of counties missing 80% of data",
+                  "50% of counties missing 80% of data", "20% of counties missing 80% of data")
+o <- o %>% select(all_of(column_order))
+
+o %>% knitr::kable()
+
+# o <- coverage %>% filter(percent_missing == 80) %>%
+#   pivot_wider(names_from = c(percent_missing, percent_affected), values_from = c(mean_percent_bias, coverage))
+# 
+# o %>% knitr::kable()
+
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+
+
+
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+
+
+
+cc <- read_rds(here(
+  'results',
+  'simulation_model_output',
+  'results_all_missingness_CC.RDS'
+)) |> setDT() |> 
+  filter(!is.na(estimate))
+
+# extract info from model labels
+cc[, `:=`(
+  percent_affected = sub(".*_(\\d+\\.?\\d*)p_.*", "\\1", outcome),
+  percent_missing = sub(".*_missing_(\\d+)_.*", "\\1", outcome),
+  effect_size = sub(".*_(\\d+\\.?\\d*p)$", "\\1", outcome)
+)]
+
+# fix none missing case
+cc[, `:=`(
+  percent_affected = ifelse(
+    grepl("outcome_exposed_8_hrs_0.005_none_missing", outcome),
+    0,
+    percent_affected
+  ),
+  percent_missing = ifelse(
+    grepl("outcome_exposed_8_hrs_0.005_none_missing", outcome),
+    0,
+    percent_missing
+  )
+)]
+
+# Ensure percent_affected and percent_missing are factors with the desired order
+cc$percent_affected <- factor(cc$percent_affected, levels = c("80", "50", "20"))
+cc$percent_missing <- factor(cc$percent_missing, levels = c("20", "50", "80"))
+
+# map effect_size to numeric values
+cc[, effect := case_when(
+  effect_size == '5p' ~ 0.05,
+  effect_size == '1p' ~ 0.01,
+  effect_size == '0.5p' ~ 0.005
+)]
+
+# calculate bias 
+cc[, percent_bias := ((estimate - effect)/effect) * 100]
+
+cc <- cc %>% mutate(
+  effect_size = case_when(
+    effect_size == '0.5p' ~ ".5% increase",
+    effect_size == '1p' ~ "1% increase",
+    effect_size == '5p' ~ "5% increase"
+  )
+)
+
+
+
+coverage <- 
+  cc %>%
+  mutate(covered = ifelse(effect < upper_ci & effect > lower_ci, 1, 0))
+
+coverage <-
+  coverage %>%
+  group_by(percent_missing, percent_affected, effect_size) %>%
+  summarize(mean_percent_bias = mean(percent_bias),
+            coverage = mean(covered)*100)
+
+o <- coverage %>% filter(percent_missing == 80) %>%
+  pivot_wider(names_from = c(percent_missing, percent_affected), values_from = c(mean_percent_bias, coverage))
+
+o %>% knitr::kable()
+
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

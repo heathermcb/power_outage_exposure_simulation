@@ -38,7 +38,7 @@ an_dat <- setDT(an_dat)
 
 cases_and_controls <- split(an_dat, by = 'group_id')
 
-l <- colnames(cases_and_controls[[1]])[5:31]
+l <- colnames(cases_and_controls[[1]])[5:34]
 
 # Model -------------------------------------------------------------------
 
@@ -87,97 +87,27 @@ results <- lapply(cases_and_controls, function(group_data) {
   run_models_for_group(group_data, l)
 })
 
-
 extract_model_results <- function(model_list, colnames) {
   results_list <- lapply(seq_along(model_list), function(i) {
     model <- model_list[[i]]
-    if (!is.null(model)) {
-      tryCatch({
-        coef <- coef(summary(model))
-        conf_int <- confint(model)
-        data.frame(
-          rowname = paste0("model_", unique(model$data$group_id), "_", colnames[i]),
-          group_id = unique(model$data$group_id),
-          outcome = colnames[i],
-          estimate = coef[2],
-          lower_ci = as.numeric(conf_int[1]),
-          upper_ci = as.numeric(conf_int[2])
-        )
-      }, error = function(e) {
-        message("Skipping model due to error: ", e$message)
-        data.frame(
-          rowname = paste0("model_", unique(model$data$group_id), "_", colnames[i]),
-          group_id = unique(model$data$group_id),
-          outcome = colnames[i],
-          estimate = NA,
-          lower_ci = NA,
-          upper_ci = NA
-        )
-      })
-    } else {
-      data.frame(
-        rowname = paste0("model_", NA, "_", colnames[i]),
-        group_id = NA,
-        outcome = colnames[i],
-        estimate = NA,
-        lower_ci = NA,
-        upper_ci = NA
-      )
-    }
-  })
-  do.call(rbind, results_list)
-}
-
-# check to see if this works
-extract_model_results <- function(model_list, colnames) {
-  results_list <- lapply(seq_along(model_list), function(i) {
-    model <- model_list[[i]]
-    if (!is.null(model)) {
+    tryCatch({
       coef <- coef(summary(model))
       conf_int <- confint(model)
       data.frame(
-        rowname = paste0("model_", unique(model$data$group_id), "_", colnames[i]),
-        group_id = unique(model$data$group_id),
         outcome = colnames[i],
-        estimate = coef[2],
+        estimate = coef[[1]],
         lower_ci = as.numeric(conf_int[1]),
         upper_ci = as.numeric(conf_int[2])
       )
-    } else {
+    }, error = function(e) {
+      message("Skipping model due to error: ", e$message)
       data.frame(
-        rowname = paste0("model_", NA, "_", colnames[i]),
-        group_id = NA,
         outcome = colnames[i],
         estimate = NA,
         lower_ci = NA,
         upper_ci = NA
       )
-    }
-  })
-  do.call(rbind, results_list)
-}
-
-extract_model_results <- function(model_list, colnames) {
-  results_list <- lapply(seq_along(model_list), function(i) {
-    model <- model_list[[i]]
-    if (!is.null(model)) {
-      coef <- coef(summary(model))
-      data.frame(
-        rowname = paste0("model_", unique(model$data$group_id), "_", colnames[i]),
-        group_id = unique(model$data$group_id),
-        outcome = colnames[i],
-        estimate = coef[2],
-        std_error = coef[2, "Std. Error"]
-      )
-    } else {
-      data.frame(
-        rowname = paste0("model_", NA, "_", colnames[i]),
-        group_id = NA,
-        outcome = colnames[i],
-        estimate = NA,
-        std_error = NA
-      )
-    }
+    })
   })
   do.call(rbind, results_list)
 }
