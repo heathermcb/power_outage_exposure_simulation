@@ -1,5 +1,13 @@
 # power_outage_exposure_simulation progress notes 
 
+Nov 6th:
+- sent draft to everyone
+- need to fix tables and potentially fix plots so that they are prettier 
+- can use vivian's table idea to make them prettier: first row is one color, 
+everything else is blank, and the lines are bold in between 
+
+- wait on feedback from coauthors then submit
+
 Oct 18th:
 
 - fixed county id issue up until b02_clean_exposure_data_with_missingness
@@ -10,6 +18,3 @@ in when creating outcome data
 
 This is the document where we write what we did, transcribe meeting notes, and 
 write next steps. 
-
-Oct 1st, 2024
-Right now, we're trying to finish the analysis plan (incorporate citations), download the data we need for the analysis, and get ZCTA level air pollution data from the 12 km gridded CMAQ dataset. 

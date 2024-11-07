@@ -78,7 +78,8 @@ p1 <- did %>%
              cols = vars(`% counties affected by missingness`),
              labeller = labeller(`% counties affected by missingness` = label_both)) +
   scale_y_continuous(
-    breaks = c(-300, -100, 0, 100, 300),
+    breaks = c(-100, 0, 100),
+    limits = c(-100, 100),
     sec.axis = sec_axis(~ ., name = "% data missing in counties affected")
   ) +
   xlab("Effect size") + ylab("% bias") +
@@ -107,7 +108,7 @@ theme(text = element_text(size = 30)) +
   theme(legend.title = element_text(size = 27)) 
 
 ggsave(
-  here("figures", "DID_bias_oct_23_2024.pdf"),
+  here("figures", "DID_bias_nov_6_2024.pdf"),
   plot = p1,
   width = 30,
   height = 15,
@@ -136,7 +137,7 @@ c1 <- coverage %>%
  
   ggplot() +
   geom_hline(
-    yintercept = 0.95,
+    yintercept = 95,
     linetype = "dashed",
     color = "black",
     size = 1
@@ -179,11 +180,16 @@ c1 <- coverage %>%
   ) +
   ggtitle(
     "Coverage in simulations representing missing data, using difference-in-differences study design"
-  ) 
-
+  ) +
+  theme(
+    panel.spacing = unit(1, "lines"),  # Increase space between facets
+    panel.border = element_rect(color = "black", fill = NA, size = 1),  # Add a box around facets
+    panel.grid.major = element_line(color = "darkgray", size = 0.5),  # Make major grid lines darker
+    panel.grid.minor = element_line(color = "darkgray", size = 0.25)  # Make minor grid lines darker
+  )
 
 ggsave(
-  here("figures", "DID_coverage_oct_23_2024.pdf"),
+  here("figures", "DID_coverage_nov_6_2024.pdf"),
   plot = c1,
   width = 32,
   height = 16,
