@@ -7,6 +7,9 @@ Nov 6th:
 everything else is blank, and the lines are bold in between 
 
 - wait on feedback from coauthors then submit
+color palette ideas: 
+https://github.com/an-bui/calecopal
+https://github.com/karthik/wesanderson
 
 Oct 18th:
 
