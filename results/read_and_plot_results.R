@@ -265,7 +265,7 @@ p2 <- cc %>%
          `% data missing in counties affected` = percent_affected) %>%
   ggplot() +
   geom_hline(
-    yintercept = 0,
+    yintercept = 95,
     linetype = "dashed",
     color = "black",
     size = 1
@@ -300,7 +300,6 @@ p2 <- cc %>%
         panel.border = element_rect(color = "black", fill = NA, size = 1)) +  # Add margin to the left of secondary y-axis title 
   theme(text = element_text(size = 30)) +
   theme(legend.title = element_text(size = 27)) 
-
 
 ggsave(
   here("figures", "CC_bias_oct_23_2024.pdf"),
@@ -373,11 +372,18 @@ c1 <- coverage %>%
   ) +
   ggtitle(
     "Coverage in simulations representing missing data, using case-crossover study design"
-  ) 
+  ) +
+  theme(
+    panel.spacing = unit(1, "lines"),  # Increase space between facets
+    panel.border = element_rect(color = "black", fill = NA, size = 1),  # Add a box around facets
+    panel.grid.major = element_line(color = "darkgray", size = 0.5),  # Make major grid lines darker
+    panel.grid.minor = element_line(color = "darkgray", size = 0.25)  # Make minor grid lines darker
+  )
+
 
 
 ggsave(
-  here("figures", "CC_coverage_oct_23_2024.pdf"),
+  here("figures", "CC_coverage_dec_11_2024.pdf"),
   plot = c1,
   width = 32,
   height = 16,

@@ -78,12 +78,13 @@ coverage <-
   coverage %>%
   group_by(percent_missing, percent_affected, effect_size) %>%
   summarize(mean_percent_bias = mean(percent_bias),
+            sd_bias = sd(percent_bias),
             coverage = mean(covered)*100)
 
 #coverage <- coverage %>% filter(percent_affected == 80 | percent_affected == 0)
 
 coverage <- coverage %>%
-  mutate(bias_coverage = paste0(round(mean_percent_bias, 1), "% (", round(coverage, 1), "%)"))
+  mutate(bias_coverage = paste0(round(mean_percent_bias, 1), "% (", round(sd_bias, 1), ")", '; ',  round(coverage, 1), '%'))
 
 coverage <- coverage %>%
   mutate(column_header = paste0(percent_missing, "% of counties missing ", percent_affected, "% of data"))
@@ -103,6 +104,14 @@ o %>% knitr::kable()
 #   pivot_wider(names_from = c(percent_missing, percent_affected), values_from = c(mean_percent_bias, coverage))
 # 
 # o %>% knitr::kable()
+
+o %>% select(
+  `0% of counties missing 0% of data`,
+  `20% of counties missing 80% of data`,
+  `50% of counties missing 80% of data`,
+  `80% of counties missing 80% of data`
+) %>%
+  knitr::kable()
 
 ```
 
@@ -153,8 +162,8 @@ cc[, `:=`(
 )]
 
 # Ensure percent_affected and percent_missing are factors with the desired order
-cc$percent_affected <- factor(cc$percent_affected, levels = c("80", "50", "20"))
-cc$percent_missing <- factor(cc$percent_missing, levels = c("20", "50", "80"))
+cc$percent_affected <- factor(cc$percent_affected, levels = c("80", "50", "20", "0"))
+cc$percent_missing <- factor(cc$percent_missing, levels = c("20", "50", "80", "0"))
 
 # map effect_size to numeric values
 cc[, effect := case_when(
@@ -180,16 +189,55 @@ coverage <-
   cc %>%
   mutate(covered = ifelse(effect < upper_ci & effect > lower_ci, 1, 0))
 
+
+
+
 coverage <-
   coverage %>%
   group_by(percent_missing, percent_affected, effect_size) %>%
   summarize(mean_percent_bias = mean(percent_bias),
+            sd_bias = sd(percent_bias),
             coverage = mean(covered)*100)
 
-o <- coverage %>% filter(percent_missing == 80) %>%
-  pivot_wider(names_from = c(percent_missing, percent_affected), values_from = c(mean_percent_bias, coverage))
+
+#coverage <- coverage %>% filter(percent_affected == 80 | percent_affected == 0)
+
+coverage <- coverage %>%
+  mutate(bias_coverage = paste0(round(mean_percent_bias, 1), "% (", round(sd_bias, 1), ")", '; ',  round(coverage, 1), '%'))
+
+coverage <- coverage %>%
+  mutate(column_header = paste0(percent_missing, "% of counties missing ", percent_affected, "% of data"))
+
+o <- coverage %>%
+  ungroup() %>% 
+  select(effect_size, column_header, bias_coverage) %>%
+  pivot_wider(names_from = column_header, values_from = bias_coverage)
+
+#column_order <- c("effect_size", "0% of counties missing 0% of data", "80% of counties missing 80% of data",
+#                  "50% of counties missing 80% of data", "20% of counties missing 80% of data")
+#o <- o %>% select(all_of(column_order))
 
 o %>% knitr::kable()
+
+# o <- coverage %>% filter(percent_missing == 80) %>%
+#   pivot_wider(names_from = c(percent_missing, percent_affected), values_from = c(mean_percent_bias, coverage))
+# 
+# o %>% knitr::kable()
+
+o %>% select(
+  `0% of counties missing 0% of data`,
+  `20% of counties missing 80% of data`,
+  `50% of counties missing 80% of data`,
+  `80% of counties missing 80% of data`
+) %>%
+  knitr::kable()
+
+
+# 
+# o <- coverage %>% filter(percent_missing == 80) %>%
+#   pivot_wider(names_from = c(percent_missing, percent_affected), values_from = c(mean_percent_bias, coverage))
+# 
+# o %>% knitr::kable()
 
 ```
 

@@ -11,9 +11,9 @@
 
 <meta name="author" content="Heather McBrien" />
 
-<meta name="date" content="2024-10-24" />
+<meta name="date" content="2024-12-12" />
 
-<title>Tables for power outage simulation</title>
+<title>read_misclassification_results</title>
 
 <script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
 // be compatible with the behavior of Pandoc < 2.8).
@@ -350,360 +350,104 @@ display: none;
 
 
 
-<h1 class="title toc-ignore">Tables for power outage simulation</h1>
+<h1 class="title toc-ignore">read_misclassification_results</h1>
 <h4 class="author">Heather McBrien</h4>
-<h4 class="date">2024-10-24</h4>
+<h4 class="date">2024-12-12</h4>
 
 </div>
 
 
-<pre class="r"><code>knitr::opts_chunk$set(echo = TRUE)
-# Plot results from DID and CC missingness analyses for manuscript, as well as
-# make tables and coverage figures
+<pre class="r"><code>DID &lt;- DID %&gt;% 
+  mutate(`No exposure misclassification` = paste0(round(mean_bias_validation, 1), &quot;% (&quot;, round(sd_bias_validation, 1), &quot;)&quot;, &#39;; &#39;,  round(coverage_validation_DID, 1), &#39;%&#39;),
+         `Exposure misclassification: 8 hour exposure instead of 4 hr` = paste0(round(mean_bias_4_hr, 1), &quot;% (&quot;, round(sd_bias_4_hr, 1), &quot;)&quot;, &#39;; &#39;,  round(coverage_4_hr_DID, 1), &#39;%&#39;),
+         `Exposure misclassification: 8 hour exposure instead of 12 hr` = paste0(round(mean_bias_12_hr, 1), &quot;% (&quot;, round(sd_bias_12_hr, 1), &quot;)&quot;, &#39;; &#39;,  round(coverage_12_hr_DID, 1), &#39;%&#39;))
 
-# Libraries ---------------------------------------------------------------
-
-pacman::p_load(here, tidyverse, data.table)
-
-# Read --------------------------------------------------------------------
-
-did &lt;- read_rds(here(
-  &#39;results&#39;,
-  &#39;simulation_model_output&#39;,
-  &#39;results_all_missingness_DID.RDS&#39;
-)) |&gt; setDT()
-
-# extract info from model labels
-did[, `:=`(
-  percent_affected = sub(&quot;.*_(\\d+\\.?\\d*)p_.*&quot;, &quot;\\1&quot;, outcome),
-  percent_missing = sub(&quot;.*_missing_(\\d+)_.*&quot;, &quot;\\1&quot;, outcome),
-  effect_size = sub(&quot;.*_(\\d+\\.?\\d*p)$&quot;, &quot;\\1&quot;, outcome)
-)]
-
-# fix none missing case
-did[, `:=`(
-  percent_affected = ifelse(
-    grepl(&quot;outcome_exposed_8_hrs_0.005_none_missing&quot;, outcome),
-    0,
-    percent_affected
-  ),
-  percent_missing = ifelse(
-    grepl(&quot;outcome_exposed_8_hrs_0.005_none_missing&quot;, outcome),
-    0,
-    percent_missing
-  )
-)]
-
-# order factors correctly
-did$percent_affected &lt;-
-  factor(did$percent_affected, levels = c(&quot;80&quot;, &quot;50&quot;, &quot;20&quot;, &#39;0&#39;))
-did$percent_missing &lt;-
-  factor(did$percent_missing, levels = c(&quot;20&quot;, &quot;50&quot;, &quot;80&quot;, &#39;0&#39;))
-
-# map effect_size to numeric values
-did[, effect := case_when(
-  effect_size == &#39;5p&#39; ~ 0.05,
-  effect_size == &#39;1p&#39; ~ 0.01,
-  effect_size == &#39;0.5p&#39; ~ 0.005
-)]
-
-# calculate bias 
-did[, percent_bias := ((estimate - effect)/effect) * 100]
-
-# add effect size labels 
-did &lt;- did %&gt;% mutate(
-  effect_size = case_when(
-    effect_size == &#39;0.5p&#39; ~ &quot;.5% increase&quot;,
-    effect_size == &#39;1p&#39; ~ &quot;1% increase&quot;,
-    effect_size == &#39;5p&#39; ~ &quot;5% increase&quot;
-  )
-)
-
-# coverage tables
-
-coverage &lt;- 
-  did %&gt;%
-  mutate(covered = ifelse(effect &lt; upper_ci &amp; effect &gt; lower_ci, 1, 0))
-
-coverage &lt;-
-  coverage %&gt;%
-  group_by(percent_missing, percent_affected, effect_size) %&gt;%
-  summarize(mean_percent_bias = mean(percent_bias),
-            sd_bias = sd(percent_bias),
-            coverage = mean(covered)*100)</code></pre>
-<pre><code>## `summarise()` has grouped output by &#39;percent_missing&#39;, &#39;percent_affected&#39;. You
-## can override using the `.groups` argument.</code></pre>
-<pre class="r"><code>#coverage &lt;- coverage %&gt;% filter(percent_affected == 80 | percent_affected == 0)
-
-coverage &lt;- coverage %&gt;%
-  mutate(bias_coverage = paste0(round(mean_percent_bias, 1), &quot;% (&quot;, round(sd_bias, 1), &quot;)&quot;, &#39;; &#39;,  round(coverage, 1), &#39;%&#39;))
-
-coverage &lt;- coverage %&gt;%
-  mutate(column_header = paste0(percent_missing, &quot;% of counties missing &quot;, percent_affected, &quot;% of data&quot;))
-
-o &lt;- coverage %&gt;%
-  ungroup() %&gt;% 
-  select(effect_size, column_header, bias_coverage) %&gt;%
-  pivot_wider(names_from = column_header, values_from = bias_coverage)
-
-#column_order &lt;- c(&quot;effect_size&quot;, &quot;0% of counties missing 0% of data&quot;, &quot;80% of counties missing 80% of data&quot;,
-#                  &quot;50% of counties missing 80% of data&quot;, &quot;20% of counties missing 80% of data&quot;)
-#o &lt;- o %&gt;% select(all_of(column_order))
-
-o %&gt;% knitr::kable()</code></pre>
-<table style="width:100%;">
+DID %&gt;% select(effect_size, `No exposure misclassification`, `Exposure misclassification: 8 hour exposure instead of 4 hr`, `Exposure misclassification: 8 hour exposure instead of 12 hr`) %&gt;% knitr::kable()</code></pre>
+<table>
 <colgroup>
-<col width="3%" />
-<col width="9%" />
-<col width="9%" />
-<col width="9%" />
-<col width="9%" />
-<col width="9%" />
-<col width="9%" />
-<col width="9%" />
-<col width="9%" />
-<col width="9%" />
-<col width="9%" />
+<col width="7%" />
+<col width="18%" />
+<col width="36%" />
+<col width="37%" />
 </colgroup>
 <thead>
 <tr class="header">
 <th align="left">effect_size</th>
-<th align="left">20% of counties missing 80% of data</th>
-<th align="left">20% of counties missing 50% of data</th>
-<th align="left">20% of counties missing 20% of data</th>
-<th align="left">50% of counties missing 80% of data</th>
-<th align="left">50% of counties missing 50% of data</th>
-<th align="left">50% of counties missing 20% of data</th>
-<th align="left">80% of counties missing 80% of data</th>
-<th align="left">80% of counties missing 50% of data</th>
-<th align="left">80% of counties missing 20% of data</th>
-<th align="left">0% of counties missing 0% of data</th>
+<th align="left">No exposure misclassification</th>
+<th align="left">Exposure misclassification: 8 hour exposure instead of
+4 hr</th>
+<th align="left">Exposure misclassification: 8 hour exposure instead of
+12 hr</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td align="left">.5% increase</td>
-<td align="left">-17.5% (74.6); 94.9%</td>
-<td align="left">-15.9% (85.2); 86.9%</td>
-<td align="left">0.2% (75.9); 93.9%</td>
-<td align="left">-29.5% (85.4); 90.9%</td>
-<td align="left">-32.6% (82.8); 90.9%</td>
-<td align="left">-7.7% (87); 89.9%</td>
-<td align="left">-54.2% (81.1); 89.9%</td>
-<td align="left">-30.1% (87.6); 88.9%</td>
-<td align="left">-11% (76.4); 92.9%</td>
-<td align="left">-8.9% (83.6); 94.9%</td>
+<td align="left">0.005</td>
+<td align="left">-11.5% (72.1); 93%</td>
+<td align="left">-10.6% (57.6); 98%</td>
+<td align="left">-63.8% (70.6); 76%</td>
 </tr>
 <tr class="even">
-<td align="left">1% increase</td>
-<td align="left">-13.3% (37.2); 96%</td>
-<td align="left">-9.2% (39.1); 94.9%</td>
-<td align="left">-5.6% (39.6); 94.9%</td>
-<td align="left">-33% (45.2); 81.8%</td>
-<td align="left">-20.9% (43.9); 84.8%</td>
-<td align="left">-8.7% (35.3); 96%</td>
-<td align="left">-54.4% (39.8); 63.6%</td>
-<td align="left">-31% (49.7); 77.8%</td>
-<td align="left">-8.7% (43.8); 90.9%</td>
-<td align="left">0.4% (36.5); 93.9%</td>
+<td align="left">0.01</td>
+<td align="left">2.3% (30.3); 95%</td>
+<td align="left">-6.7% (30.6); 96%</td>
+<td align="left">-64.7% (34.9); 46%</td>
 </tr>
 <tr class="odd">
-<td align="left">5% increase</td>
-<td align="left">-18% (14.1); 40.4%</td>
-<td align="left">-13.9% (14.2); 52.5%</td>
-<td align="left">-7.3% (12.6); 73.7%</td>
-<td align="left">-35.5% (19.5); 19.2%</td>
-<td align="left">-22% (23); 47.5%</td>
-<td align="left">-10% (18.1); 72.7%</td>
-<td align="left">-50.5% (26.7); 18.2%</td>
-<td align="left">-33.3% (32.3); 44.4%</td>
-<td align="left">-13.3% (24.9); 74.7%</td>
-<td align="left">-1.3% (8.7); 88.9%</td>
+<td align="left">0.05</td>
+<td align="left">-2.5% (5.8); 96%</td>
+<td align="left">-8.1% (7); 68%</td>
+<td align="left">-68.2% (9.2); 0%</td>
 </tr>
 </tbody>
 </table>
-<pre class="r"><code># o &lt;- coverage %&gt;% filter(percent_missing == 80) %&gt;%
-#   pivot_wider(names_from = c(percent_missing, percent_affected), values_from = c(mean_percent_bias, coverage))
-# 
-# o %&gt;% knitr::kable()
+<pre class="r"><code>CC &lt;- CC %&gt;% 
+  mutate(`No exposure misclassification` = paste0(round(mean_bias_validation, 1), &quot;% (&quot;, round(sd_bias_validation, 1), &quot;)&quot;, &#39;; &#39;,  round(coverage_validation_CC, 1), &#39;%&#39;),
+         `Exposure misclassification: 8 hour exposure instead of 4 hr` = paste0(round(mean_bias_4_hr, 1), &quot;% (&quot;, round(sd_bias_4_hr, 1), &quot;)&quot;, &#39;; &#39;,  round(coverage_4_hr_CC, 1), &#39;%&#39;),
+         `Exposure misclassification: 8 hour exposure instead of 12 hr` = paste0(round(mean_bias_12_hr, 1), &quot;% (&quot;, round(sd_bias_12_hr, 1), &quot;)&quot;, &#39;; &#39;,  round(coverage_12_hr_CC, 1), &#39;%&#39;))
 
-o %&gt;% select(
-  `0% of counties missing 0% of data`,
-  `20% of counties missing 80% of data`,
-  `50% of counties missing 80% of data`,
-  `80% of counties missing 80% of data`
-) %&gt;%
-  knitr::kable()</code></pre>
+CC %&gt;% select(effect_size, `No exposure misclassification`, `Exposure misclassification: 8 hour exposure instead of 4 hr`, `Exposure misclassification: 8 hour exposure instead of 12 hr`) %&gt;% knitr::kable()</code></pre>
 <table>
 <colgroup>
-<col width="23%" />
-<col width="25%" />
-<col width="25%" />
-<col width="25%" />
-</colgroup>
-<thead>
-<tr class="header">
-<th align="left">0% of counties missing 0% of data</th>
-<th align="left">20% of counties missing 80% of data</th>
-<th align="left">50% of counties missing 80% of data</th>
-<th align="left">80% of counties missing 80% of data</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td align="left">-8.9% (83.6); 94.9%</td>
-<td align="left">-17.5% (74.6); 94.9%</td>
-<td align="left">-29.5% (85.4); 90.9%</td>
-<td align="left">-54.2% (81.1); 89.9%</td>
-</tr>
-<tr class="even">
-<td align="left">0.4% (36.5); 93.9%</td>
-<td align="left">-13.3% (37.2); 96%</td>
-<td align="left">-33% (45.2); 81.8%</td>
-<td align="left">-54.4% (39.8); 63.6%</td>
-</tr>
-<tr class="odd">
-<td align="left">-1.3% (8.7); 88.9%</td>
-<td align="left">-18% (14.1); 40.4%</td>
-<td align="left">-35.5% (19.5); 19.2%</td>
-<td align="left">-50.5% (26.7); 18.2%</td>
-</tr>
-</tbody>
-</table>
-<div id="r-markdown" class="section level2">
-<h2>R Markdown</h2>
-<p>This is an R Markdown document. Markdown is a simple formatting
-syntax for authoring HTML, PDF, and MS Word documents. For more details
-on using R Markdown see <a href="http://rmarkdown.rstudio.com" class="uri">http://rmarkdown.rstudio.com</a>.</p>
-<p>When you click the <strong>Knit</strong> button a document will be
-generated that includes both content as well as the output of any
-embedded R code chunks within the document. You can embed an R code
-chunk like this:</p>
-</div>
-<div id="including-plots" class="section level2">
-<h2>Including Plots</h2>
-<p>You can also embed plots, for example:</p>
-<pre><code>## Warning: Invalid .internal.selfref detected and fixed by taking a (shallow)
-## copy of the data.table so that := can add this new column by reference. At an
-## earlier point, this data.table has been copied by R (or was created manually
-## using structure() or similar). Avoid names&lt;- and attr&lt;- which in R currently
-## (and oddly) may copy the whole data.table. Use set* syntax instead to avoid
-## copying: ?set, ?setnames and ?setattr. If this message doesn&#39;t help, please
-## report your use case to the data.table issue tracker so the root cause can be
-## fixed or this message improved.</code></pre>
-<pre><code>## `summarise()` has grouped output by &#39;percent_missing&#39;, &#39;percent_affected&#39;. You
-## can override using the `.groups` argument.</code></pre>
-<table style="width:100%;">
-<colgroup>
-<col width="3%" />
-<col width="9%" />
-<col width="9%" />
-<col width="9%" />
-<col width="9%" />
-<col width="9%" />
-<col width="9%" />
-<col width="9%" />
-<col width="9%" />
-<col width="9%" />
-<col width="9%" />
+<col width="7%" />
+<col width="18%" />
+<col width="36%" />
+<col width="37%" />
 </colgroup>
 <thead>
 <tr class="header">
 <th align="left">effect_size</th>
-<th align="left">20% of counties missing 80% of data</th>
-<th align="left">20% of counties missing 50% of data</th>
-<th align="left">20% of counties missing 20% of data</th>
-<th align="left">50% of counties missing 80% of data</th>
-<th align="left">50% of counties missing 50% of data</th>
-<th align="left">50% of counties missing 20% of data</th>
-<th align="left">80% of counties missing 80% of data</th>
-<th align="left">80% of counties missing 50% of data</th>
-<th align="left">80% of counties missing 20% of data</th>
-<th align="left">0% of counties missing 0% of data</th>
+<th align="left">No exposure misclassification</th>
+<th align="left">Exposure misclassification: 8 hour exposure instead of
+4 hr</th>
+<th align="left">Exposure misclassification: 8 hour exposure instead of
+12 hr</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td align="left">.5% increase</td>
-<td align="left">-22.1% (54.2); 92.7%</td>
-<td align="left">-7.4% (52.1); 95.8%</td>
-<td align="left">-11.1% (61.7); 93.8%</td>
-<td align="left">-34% (61.2); 87.8%</td>
-<td align="left">-22% (64.7); 89.7%</td>
-<td align="left">-13.2% (67); 89.4%</td>
-<td align="left">-57.6% (57.8); 80.9%</td>
-<td align="left">-38.4% (65.8); 80.6%</td>
-<td align="left">-6.3% (60.6); 90.5%</td>
-<td align="left">-9.2% (59.3); 95.8%</td>
+<td align="left">0.005</td>
+<td align="left">-3.4% (49.6); 93.8%</td>
+<td align="left">-9.4% (48.4); 93.5%</td>
+<td align="left">-72.1% (47.9); 58.9%</td>
 </tr>
 <tr class="even">
-<td align="left">1% increase</td>
-<td align="left">-16.4% (31.1); 90.5%</td>
-<td align="left">-14.1% (31.2); 86%</td>
-<td align="left">-7% (26.4); 94.9%</td>
-<td align="left">-31.7% (34.9); 73%</td>
-<td align="left">-16.2% (39.8); 78.4%</td>
-<td align="left">-7.4% (30.8); 92.6%</td>
-<td align="left">-51.8% (35.7); 49%</td>
-<td align="left">-30.7% (40.5); 66%</td>
-<td align="left">-11.2% (34.2); 87.5%</td>
-<td align="left">0.3% (29.3); 95.7%</td>
+<td align="left">0.01</td>
+<td align="left">-0.7% (22.1); 95.9%</td>
+<td align="left">-7.5% (21.4); 95.8%</td>
+<td align="left">-69% (24.1); 15.5%</td>
 </tr>
 <tr class="odd">
-<td align="left">5% increase</td>
-<td align="left">-17.8% (13.1); 23.5%</td>
-<td align="left">-13.7% (13.9); 48.9%</td>
-<td align="left">-8% (11); 77.9%</td>
-<td align="left">-33.7% (18.7); 19%</td>
-<td align="left">-22% (21.7); 44%</td>
-<td align="left">-9.4% (16.4); 79%</td>
-<td align="left">-48.8% (25.6); 19.1%</td>
-<td align="left">-32.6% (31.5); 47.9%</td>
-<td align="left">-13.8% (23.5); 75.3%</td>
-<td align="left">-1.9% (5.7); 95.7%</td>
-</tr>
-</tbody>
-</table>
-<table>
-<colgroup>
-<col width="23%" />
-<col width="25%" />
-<col width="25%" />
-<col width="25%" />
-</colgroup>
-<thead>
-<tr class="header">
-<th align="left">0% of counties missing 0% of data</th>
-<th align="left">20% of counties missing 80% of data</th>
-<th align="left">50% of counties missing 80% of data</th>
-<th align="left">80% of counties missing 80% of data</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td align="left">-9.2% (59.3); 95.8%</td>
-<td align="left">-22.1% (54.2); 92.7%</td>
-<td align="left">-34% (61.2); 87.8%</td>
-<td align="left">-57.6% (57.8); 80.9%</td>
-</tr>
-<tr class="even">
-<td align="left">0.3% (29.3); 95.7%</td>
-<td align="left">-16.4% (31.1); 90.5%</td>
-<td align="left">-31.7% (34.9); 73%</td>
-<td align="left">-51.8% (35.7); 49%</td>
-</tr>
-<tr class="odd">
-<td align="left">-1.9% (5.7); 95.7%</td>
-<td align="left">-17.8% (13.1); 23.5%</td>
-<td align="left">-33.7% (18.7); 19%</td>
-<td align="left">-48.8% (25.6); 19.1%</td>
+<td align="left">0.05</td>
+<td align="left">-2.6% (3.8); 93.8%</td>
+<td align="left">-11.1% (4.5); 30.9%</td>
+<td align="left">-69.1% (7.6); 0%</td>
 </tr>
 </tbody>
 </table>
 <p>Note that the <code>echo = FALSE</code> parameter was added to the
 code chunk to prevent printing of the R code that generated the
 plot.</p>
-</div>
 
 
 

@@ -1,0 +1,257 @@
+# Read, tabulate, and plot simulation results 
+
+# Libraries ---------------------------------------------------------------
+
+library(tidyverse)
+library(here)
+library(data.table)
+library(stringr)
+
+# Helpers -----------------------------------------------------------------
+
+
+extend_to_max_length <- function(df){
+  while (nrow(df) < 100){
+    df <- rbind(df, rep(NA, ncol(df)))
+  }
+  return(df)
+}
+
+
+# function to read and bind RDS files with coefficients and CIs 
+read_and_bind_rds <- function(path, pattern = "\\.RDS$") {
+  all_files <- list.files(path, full.names = TRUE, pattern = pattern) 
+  all_files <- lapply(FUN = readRDS, all_files)
+  af <- lapply(FUN = extend_to_max_length, all_files)
+  results <- bind_cols(af)
+}
+
+# function to select and rename columns based on effect size and study design
+# suffix indicates study design and effect size
+select_and_rename <- function(data, suffix) {
+  data %>%
+    dplyr::select(
+      beta_validation_model = paste0("beta_validation_model_", suffix),
+      beta_4_hr_model = paste0("beta_4_hr_outcome_model_", suffix),
+      beta_12_hr_model = paste0("beta_12_hr_outcome_model_", suffix)
+    )
+}
+
+# function to calculate bias, select relevant columns, and add metadata
+calculate_bias <- function(data, effect_size, study_design) {
+  data %>%
+    mutate(across(everything(), ~ ((.x - effect_size) / effect_size) * 100,
+                  .names = "bias_{.col}")) %>%
+    mutate(effect_size = as.character(effect_size),
+           study_design = study_design)
+}
+
+# define a function to calculate coverage
+calculate_coverage <- function(lower_CI, upper_CI, reference_value) {
+  ifelse(lower_CI <= reference_value & upper_CI >= reference_value, 1, 0)
+}
+
+# Do ----------------------------------------------------------------------
+
+
+# read results
+results <- 
+  read_and_bind_rds(here(
+    "results",
+    'simulation_model_output',
+    'exposure_misclassification'
+  ))
+
+
+# apply functions to read and bind coefficients for different effect sizes
+results_betas_DID_05 <- select_and_rename(results, "05p")
+results_betas_DID_1 <- select_and_rename(results, "1p")
+results_betas_DID_5 <- select_and_rename(results, "5p")
+results_betas_CC_05 <- select_and_rename(results, "05p_cc")
+results_betas_CC_1 <- select_and_rename(results, "1p_cc")
+results_betas_CC_5 <- select_and_rename(results, "5p_cc")
+
+# apply functions to calculate bias
+results_bias_DID_05_p <- calculate_bias(results_betas_DID_05, 0.005, "DID")
+results_bias_DID_1_p <- calculate_bias(results_betas_DID_1, 0.01, "DID")
+results_bias_DID_5_p <- calculate_bias(results_betas_DID_5, 0.05, "DID")
+results_bias_CC_05_p <- calculate_bias(results_betas_CC_05, 0.005, "CC")
+results_bias_CC_1_p <- calculate_bias(results_betas_CC_1, 0.01, "CC")
+results_bias_CC_5_p <- calculate_bias(results_betas_CC_5, 0.05, "CC")
+
+pt <- bind_rows(results_bias_DID_05_p,
+                results_bias_DID_1_p,
+                results_bias_DID_5_p) %>%
+  mutate(effect_size = as.factor(effect_size))
+
+
+DID_bias <- pt %>% group_by(effect_size, study_design) %>% summarize(
+  mean_bias_validation = mean(bias_beta_validation_model),
+  mean_bias_4_hr = mean(bias_beta_4_hr_model),
+  mean_bias_12_hr = mean(bias_beta_12_hr_model),
+  sd_bias_validation = sd(bias_beta_validation_model),
+  sd_bias_4_hr = sd(bias_beta_4_hr_model),
+  sd_bias_12_hr = sd(bias_beta_12_hr_model)
+)
+
+pt2 <- bind_rows(results_bias_CC_05_p,
+                results_bias_CC_1_p,
+                results_bias_CC_5_p) %>%
+  mutate(effect_size = as.factor(effect_size))
+
+CC_bias <- pt2 %>% group_by(effect_size, study_design) %>% summarize(
+  mean_bias_validation = mean(bias_beta_validation_model, na.rm = T),
+  mean_bias_4_hr = mean(bias_beta_4_hr_model, na.rm = T),
+  mean_bias_12_hr = mean(bias_beta_12_hr_model, na.rm = T),
+  sd_bias_validation = sd(bias_beta_validation_model, na.rm = T),
+  sd_bias_4_hr = sd(bias_beta_4_hr_model, na.rm = T),
+  sd_bias_12_hr = sd(bias_beta_12_hr_model, na.rm = T)
+)
+
+# coverage ----------------------------------------------------------------
+
+# Coverage plots ----------------------------------------------------------
+
+# get all CIs
+CI_cols <- grep("lower_CI|upper_CI", colnames(results), value = TRUE)
+CIs <- results[, CI_cols]
+
+# get effect specific CIs
+effect_05_columns <- grep("model_05p", colnames(CIs), value = TRUE)
+CIs_05p <- CIs[, effect_05_columns]
+
+effect_1_columns <- grep("model_1p", colnames(CIs), value = TRUE)
+CIs_1p <- CIs[, effect_1_columns]
+
+effect_5_columns <- grep("model_5p", colnames(CIs), value = TRUE)
+CIs_5p <- CIs[, effect_5_columns]
+
+# calculate coverage within those data frames
+coverage_05p <- CIs_05p %>%
+  mutate(
+    coverage_validation_DID = calculate_coverage(
+      lower_CI_validation_model_05p,
+      upper_CI_validation_model_05p,
+      reference_value = 0.005
+    ),
+    coverage_validation_CC = calculate_coverage(
+      lower_CI_validation_model_05p_cc,
+      upper_CI_validation_model_05p_cc,
+      reference_value = 0.005
+    ),
+    coverage_4_hr_DID = calculate_coverage(
+      lower_CI_4_hr_outcome_model_05p,
+      upper_CI_4_hr_outcome_model_05p,
+      reference_value = 0.005
+    ),
+    coverage_4_hr_CC = calculate_coverage(
+      lower_CI_4_hr_outcome_model_05p_cc,
+      upper_CI_4_hr_outcome_model_05p_cc,
+      reference_value = 0.005
+    ),
+    coverage_12_hr_DID = calculate_coverage(
+      lower_CI_12_hr_outcome_model_05p,
+      upper_CI_12_hr_outcome_model_05p,
+      reference_value = 0.005
+    ),
+    coverage_12_hr_CC = calculate_coverage(
+      lower_CI_12_hr_outcome_model_05p_cc,
+      upper_CI_12_hr_outcome_model_05p_cc,
+      reference_value = 0.005
+    ))
+
+coverage_1p <- CIs_1p %>%
+  mutate(
+    coverage_validation_DID = calculate_coverage(
+      lower_CI_validation_model_1p,
+      upper_CI_validation_model_1p,
+      reference_value = 0.01
+    ),
+    coverage_validation_CC = calculate_coverage(
+      lower_CI_validation_model_1p_cc,
+      upper_CI_validation_model_1p_cc,
+      reference_value = 0.01
+    ),
+    coverage_4_hr_DID = calculate_coverage(
+      lower_CI_4_hr_outcome_model_1p,
+      upper_CI_4_hr_outcome_model_1p,
+      reference_value = 0.01
+    ),
+    coverage_4_hr_CC = calculate_coverage(
+      lower_CI_4_hr_outcome_model_1p_cc,
+      upper_CI_4_hr_outcome_model_1p_cc,
+      reference_value = 0.01
+    ),
+    coverage_12_hr_DID = calculate_coverage(
+      lower_CI_12_hr_outcome_model_1p,
+      upper_CI_12_hr_outcome_model_1p,
+      reference_value = 0.01
+    ),
+    coverage_12_hr_CC = calculate_coverage(
+      lower_CI_12_hr_outcome_model_1p_cc,
+      upper_CI_12_hr_outcome_model_1p_cc,
+      reference_value = 0.01
+    ))
+
+coverage_5p <- CIs_5p %>%
+  mutate(
+    coverage_validation_DID = calculate_coverage(
+      lower_CI_validation_model_5p,
+      upper_CI_validation_model_5p,
+      reference_value = 0.05
+    ),
+    coverage_validation_CC = calculate_coverage(
+      lower_CI_validation_model_5p_cc,
+      upper_CI_validation_model_5p_cc,
+      reference_value = 0.05
+    ),
+    coverage_4_hr_DID = calculate_coverage(
+      lower_CI_4_hr_outcome_model_5p,
+      upper_CI_4_hr_outcome_model_5p,
+      reference_value = 0.05
+    ),
+    coverage_4_hr_CC = calculate_coverage(
+      lower_CI_4_hr_outcome_model_5p_cc,
+      upper_CI_4_hr_outcome_model_5p_cc,
+      reference_value = 0.05
+    ),
+    coverage_12_hr_DID = calculate_coverage(
+      lower_CI_12_hr_outcome_model_5p,
+      upper_CI_12_hr_outcome_model_5p,
+      reference_value = 0.05
+    ),
+    coverage_12_hr_CC = calculate_coverage(
+      lower_CI_12_hr_outcome_model_5p_cc,
+      upper_CI_12_hr_outcome_model_5p_cc,
+      reference_value = 0.05
+    ))
+
+coverage_05p <- coverage_05p %>%
+  select(contains('coverage')) %>%
+  mutate(effect_size = '0.005')
+
+coverage_1p <- coverage_1p %>%
+  select(contains('coverage')) %>%
+  mutate(effect_size = '0.01')
+
+coverage_5p <- coverage_5p %>%
+  select(contains('coverage')) %>% 
+  mutate(effect_size = '0.05')
+
+
+all_cov <- bind_rows(coverage_5p, coverage_05p, coverage_1p)
+
+all_cov <- all_cov %>%
+  group_by(effect_size) %>%
+  summarize(across(contains("coverage"), mean, na.rm = T), .groups = "drop")
+
+all_cov <- all_cov %>% mutate(across(contains("coverage"), ~ . * 100))
+
+DID_cov <- all_cov %>% select(contains("DID"), effect_size)
+CC_cov <- all_cov %>% select(contains('CC'), effect_size)
+
+DID <- DID_bias %>% left_join(DID_cov)
+
+CC <- CC_bias %>% left_join(CC_cov)
+
+
