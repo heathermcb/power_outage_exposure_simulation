@@ -329,7 +329,7 @@ c1 <- coverage %>%
   
   ggplot() +
   geom_hline(
-    yintercept = 0.95,
+    yintercept = 95,
     linetype = "dashed",
     color = "black",
     size = 1

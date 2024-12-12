@@ -1,5 +1,14 @@
 # power_outage_exposure_simulation progress notes 
 
+December 12th:
+
+- need to fix the simulation code so that it's well-organized and automated when it can be
+- everything is internally consistent for now, but we may need to rerun the simulation once more, 
+with updated code and everything organized so that it's really reproducible
+- there's also that comment marianthi made about how the manuscript slightly misrepresents how we drew counts of customers out
+- want to fix that in revisions, and be able to re-generate plots 
+- that's the next big thing for this. 
+
 Nov 6th:
 - sent draft to everyone
 - need to fix tables and potentially fix plots so that they are prettier 
